@@ -83,7 +83,7 @@ chatbridge/
 │   ├── src/
 │   │   ├── index.ts
 │   │   ├── routes/ (chat.ts, apps.ts, oauth.ts, spotify.ts)
-│   │   ├── middleware/ (auth.ts, rateLimit.ts, safety.ts)
+│   │   ├── middleware/ (auth.ts, rateLimit.ts, safety.ts, pii.ts)
 │   │   ├── services/ (session.ts, llm.ts, tools.ts, context.ts)
 │   │   └── db/ (schema.sql, client.ts, seed.ts)
 │   ├── tests/
@@ -100,7 +100,7 @@ chatbridge/
 
 ---
 
-## Wave 1: Foundation (sequential)
+## Wave 1: Foundation (T1 sequential, then T2+T3 parallel)
 
 ### Task 1: Fork Chatbox to GitLab
 
@@ -169,8 +169,10 @@ Dependencies: Wave 1 complete.
 ### Task 5: PostgreSQL Schema + DB Client
 
 **Agent:** haiku | **Files:** `server/src/db/schema.sql`, `server/src/db/client.ts`
+**Test:** `server/tests/db/client.test.ts` — mock pg.Pool, verify getApps() queries `WHERE status='approved'`, getAppById('chess') queries `WHERE id=$1`.
 
 - [ ] `cd server && pnpm add pg && pnpm add -D @types/pg`
+- [ ] Write failing test for client.ts query functions
 - [ ] Write schema.sql: `apps` table (id TEXT PK, name, description_for_model, iframe_url, tools JSONB, auth_type DEFAULT 'none', oauth_config JSONB, trust_safety JSONB, sandbox_permissions TEXT[], status DEFAULT 'approved', created_at). `chat_messages` table (id SERIAL PK, session_pseudonym, role, content, tool_call_id, app_id, data_classification DEFAULT 'ephemeral_context', created_at). Index on session_pseudonym.
 - [ ] Write client.ts: `pg.Pool` using DATABASE_URL env, `query(text, params)` helper, `getApps()` (WHERE status='approved'), `getAppById(id)`.
 - [ ] Commit: `feat: PostgreSQL schema + DB client`
@@ -218,10 +220,12 @@ Hardcoded entries for chess, go, spotify. Each with full tool schemas including 
 ### Task 9: Chat SSE Route
 
 **Agent:** haiku | **Files:** `server/src/routes/chat.ts`
+**Test:** `server/tests/routes/chat.test.ts` — mock llm.ts streamChat, verify POST /api/chat returns Content-Type text/event-stream, response body contains at least one `data:` line.
 
+- [ ] Write failing test: POST /api/chat with `{ messages: [{role:'user', content:'hi'}] }`, assert response Content-Type is text/event-stream
 - [ ] Implement POST `/api/chat`: read `{ messages, tools }` from body. Set SSE headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`). Call `buildMessages` then `streamChat`, write each chunk as `data: {json}\n\n`. End with `data: [DONE]\n\n`. Catch errors, write as `data: {error}\n\n`.
 - [ ] Register in `server/src/index.ts`
-- [ ] Commit: `feat: chat SSE streaming route`
+- [ ] Run tests, commit: `feat: chat SSE streaming route`
 
 ---
 
@@ -231,8 +235,8 @@ Hardcoded entries for chess, go, spotify. Each with full tool schemas including 
 **Test:** `tests/sdk/chatbridge-sdk.test.ts`
 
 - [ ] Implement IIFE exposing `window.ChatBridge`. Schema = `CHATBRIDGE_V1`, version = `1.0`. Internal state: `appId`, `completionPort`, `handlers` map. Envelope factory: `createEnvelope(type, payload, extra)`.
-- [ ] Message listener: on `task.launch` with port[0], store completionPort and appId, call `handlers.launch`. On `tool.invoke`, call `handlers.toolInvoke(payload, requestId)`.
-- [ ] Methods: `on(event, handler)`, `sendState(state)` (postMessage to parent), `complete(status, payload, requestId)` (via completionPort or postMessage), `respondToTool(requestId, result)` (postMessage to parent), `resize(height)`.
+- [ ] Message listener: on wire type `task.launch` with port[0], store completionPort and appId, call `handlers['launch']`. On wire type `tool.invoke`, call `handlers['toolInvoke'](payload, requestId)`. **KEY:** The wire protocol uses dot-notation (`tool.invoke`), but the handler registry uses camelCase (`toolInvoke`). The listener maps between them.
+- [ ] Methods: `on(event, handler)` stores handler by event name (camelCase: 'launch', 'toolInvoke'). `sendState(state)` postMessages to parent. `complete(status, payload, requestId)` — requestId is **optional** (game-over signals from auto-init have no requestId) — sends via completionPort if available, else bare postMessage. `respondToTool(requestId, result)` postMessages to parent. `resize(height)` postMessages to parent.
 - [ ] Write test verifying envelope shape (schema, version, type, timestamp, source, payload).
 - [ ] Commit: `feat: ChatBridge postMessage SDK`
 
@@ -436,7 +440,8 @@ Dependencies: Wave 4 complete.
 
 **Agent:** haiku | **Files:** `server/src/routes/spotify.ts`
 
-- [ ] Helper `spotifyFetch(endpoint, sessionId, options?)`: get token via `getSpotifyToken`, fetch `api.spotify.com/v1{endpoint}` with Bearer auth, return json.
+- [ ] Import `getSpotifyToken` from `./oauth.js` (created in T24). This function takes a sessionId string and returns the Spotify access_token or null.
+- [ ] Helper `spotifyFetch(endpoint, sessionId, options?)`: get token via `getSpotifyToken(sessionId)`, throw if null. Fetch `https://api.spotify.com/v1{endpoint}` with `Authorization: Bearer {token}` header, return parsed json.
 - [ ] `GET /api/spotify/search`: query param `q`, call `/search?q={q}&type=track&limit=10`, return `{ tracks: items[] }`.
 - [ ] `POST /api/spotify/playlist`: body `{ name, session_id }`, get user id via `/me`, create playlist via `POST /users/{id}/playlists`, return `{ playlist_id, url }`.
 - [ ] `POST /api/spotify/playlist/:id/tracks`: body `{ track_ids, session_id }`, map ids to `spotify:track:{id}` URIs, POST to `/playlists/{id}/tracks`, return `{ success, added }`.
@@ -510,9 +515,37 @@ Dependencies: Wave 4 complete.
 **Test:** `server/tests/services/context.test.ts`
 
 - [ ] Write tests: `trimHistory` keeps last 20 messages verbatim when over limit, prepends summary of older messages. Returns all if under limit. `summarizeAppResult` returns full JSON for turns 0-2, short key-value summary for 3-5, empty string for 6+.
-- [ ] `trimHistory(messages, maxVerbatim=20)`: if under limit return as-is. Otherwise create summary message from last 3 old messages' first 50 chars, concat with recent.
+- [ ] `trimHistory(messages, maxVerbatim=20)`: if under limit return as-is. Otherwise create a system message summarizing old messages (extract key topics from last 3 old messages, max 50 chars each). **Known deviation:** spec says "LLM-generated summary" — MVP uses deterministic extraction for speed and cost. Upgrade to LLM summary post-MVP.
 - [ ] `summarizeAppResult(data, turnsSince)`: >=6 return ''. <=2 return JSON (truncated to 1500). 3-5 return `[App result summary: key: val, ...]` from first 5 keys.
 - [ ] Run tests, commit: `feat: context manager with progressive degradation`
+
+---
+
+### Task 37: PII-Stripping Proxy
+
+**Agent:** haiku | **Files:** `server/src/middleware/pii.ts`
+**Test:** `server/tests/middleware/pii.test.ts`
+
+Spec section 8 Risk 2 requires scanning outbound prompts for PII before LLM calls.
+
+- [ ] Write tests: `stripPii(text)` replaces email patterns with `[REDACTED_EMAIL]`, phone patterns (xxx-xxx-xxxx, (xxx) xxx-xxxx) with `[REDACTED_PHONE]`, SSN patterns (xxx-xx-xxxx) with `[REDACTED_SSN]`. Passes through text without PII unchanged.
+- [ ] Implement `stripPii(text: string): string` using regex replacements. Export for use in T32's LLM call pipeline.
+- [ ] Run tests, commit: `feat: PII-stripping middleware (OWASP Risk 2)`
+
+---
+
+### Task 38: Clerk Frontend Wiring
+
+**Agent:** haiku | **Files:** Modify Chatbox app root (likely `src/renderer/routes/__root.tsx` or equivalent entry)
+
+T29 adds server-side Clerk middleware but no login UI. Without this task, users hit 401s.
+
+- [ ] `pnpm add @clerk/clerk-react`
+- [ ] Wrap the app root component with `<ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>`. Find the root layout in `src/renderer/routes/__root.tsx` or the top-level App component.
+- [ ] Add `<SignedIn>` / `<SignedOut>` guards: signed out shows `<SignIn />` component, signed in shows the normal app.
+- [ ] Add `<UserButton />` in the header/sidebar for sign-out.
+- [ ] Ensure all fetch calls to /api/chat include the Clerk session token: `const { getToken } = useAuth(); headers: { Authorization: 'Bearer ' + await getToken() }`.
+- [ ] Commit: `feat: Clerk frontend auth UI`
 
 ---
 
@@ -524,13 +557,15 @@ Dependencies: Wave 5 complete.
 
 **Agent:** opus | **Files:** Modify `server/src/routes/chat.ts`
 
-This is a convergence task — requires understanding how tools.ts, safety.ts, context.ts, and db/client.ts interact.
+This is a convergence task — requires understanding how tools.ts, safety.ts, context.ts, pii.ts, and db/client.ts interact.
 
 - [ ] Update POST `/api/chat` to accept `{ messages, activeAppId, toolResult? }` in body.
-- [ ] Load apps from `getApps()`. Build tools via `buildToolsForTurn(apps, activeAppId)`.
-- [ ] If `toolResult` present: find app + tool definition. Validate via `validateToolResult(data, schema)`. If invalid, write error SSE event and end. If valid, wrap via `wrapWithDelimiters(appId, data)`. Append as `{ role: 'tool', content: wrapped, tool_call_id }` to messages.
-- [ ] Apply `trimHistory` to messages before sending to LLM.
-- [ ] Stream response via `streamChat`, write SSE events.
+- [ ] Load apps from `getApps()` (from `../db/client.js`). Build tools via `buildToolsForTurn(apps, activeAppId)` (from `../services/tools.js`).
+- [ ] Run all user message content through `stripPii()` (from `../middleware/pii.js`) before building LLM messages.
+- [ ] If `toolResult` present: find app + tool definition from registry. Validate via `validateToolResult(data, schema)` (from `../middleware/safety.js`). If invalid, write `data: {"type":"error","message":"Tool result failed validation"}\n\n` and end. If valid, wrap via `wrapWithDelimiters(appId, data)`. Append as `{ role: 'tool', content: wrapped, tool_call_id }` to messages.
+- [ ] Apply `trimHistory(messages)` (from `../services/context.js`) before sending to LLM.
+- [ ] Stream response via `streamChat` (from `../services/llm.js`). For each chunk: if chunk contains a tool_call, emit a **custom SSE event** before the raw OpenAI chunk: `data: {"type":"tool_call_start","toolCall":{"id":"...","name":"...","arguments":"..."}}\n\n`. This tells the frontend to dispatch to the iframe. Continue streaming remaining chunks normally. End with `data: [DONE]\n\n`.
+- [ ] **SSE Event Types (contract with T33):** `{"type":"token","content":"..."}` for text deltas. `{"type":"tool_call_start","toolCall":{"id","name","arguments"}}` when tool call detected. `{"type":"error","message":"..."}` on errors. `[DONE]` on completion.
 - [ ] Commit: `feat: end-to-end tool orchestration`
 
 ---
@@ -539,11 +574,13 @@ This is a convergence task — requires understanding how tools.ts, safety.ts, c
 
 **Agent:** opus | **Files:** `src/renderer/components/ChatBridgeApp.tsx`
 
-Convergence task — wires useChat + useIframeApps + PostMessageBroker + useToolExecution + AppCard + ToolCallIndicator.
+Convergence task — wires useChat + useIframeApps + PostMessageBroker + useToolExecution + AppCard + ToolCallIndicator + Clerk auth.
 
-- [ ] On mount: `fetchApps()` into state. Create `PostMessageBroker([])`. Listen for `tool.result` -> `resolveToolCall`. Listen for `task.completed` -> store result card data.
-- [ ] `handleSend(input)`: call `sendMessage(input, [])`. If result is `tool_calls`: for each tool call, switch on name: `launch_app` -> `launchApp(appId, url)`, `get_available_apps` -> `addToolResult(id, JSON.stringify(apps))`, other -> find active app iframe ref, `broker.sendToIframe(iframe, 'tool.invoke', { name, arguments, requestId })`.
-- [ ] Render: scrollable message list (user right-aligned blue, assistant left-aligned gray), streamingText bubble while streaming, ToolCallIndicator when tool executing, IframeManager for each app in apps map, input bar with text input + send button.
+- [ ] On mount: `fetchApps()` into state. Create `PostMessageBroker([])`. Listen for `tool.result` messages -> call `resolveToolCall(msg.payload)`. Listen for `task.completed` -> store result for AppCard rendering.
+- [ ] SSE event handling in useChat (or streamChat in api.ts): parse custom event types from T32's contract: `{"type":"token"}` -> append to streamingText, `{"type":"tool_call_start"}` -> call `handleToolCall(toolCall)` which returns a Promise. When iframe responds via broker `tool.result` event, the Promise resolves, and `sendMessage` re-calls `/api/chat` with the `toolResult` body field to resume.
+- [ ] `handleSend(input)`: call `sendMessage(input, [])`. If tool_calls returned: for each call, switch on name: `launch_app` -> `launchApp(appId, iframeUrl)` from available apps, `get_available_apps` -> `addToolResult(id, JSON.stringify(apps))`, `get_app_state` / other app tools -> find active app iframe ref, `broker.sendToIframe(iframe, 'tool.invoke', { name, arguments: args, requestId: toolCallId })`.
+- [ ] Include Clerk session token on all API calls: use `useAuth().getToken()` to get JWT, pass as `Authorization: Bearer {token}` header in api.ts fetch calls.
+- [ ] Render: scrollable message list (user right-aligned blue, assistant left-aligned gray), streamingText bubble while streaming, ToolCallIndicator when tool executing, AppCard for completed activities, IframeManager for each app in apps map, input bar with text input + send button.
 - [ ] Wire into Chatbox main route (likely `src/renderer/routes/index.tsx`).
 - [ ] Commit: `feat: ChatBridgeApp wiring all systems`
 
@@ -561,11 +598,11 @@ Convergence task — wires useChat + useIframeApps + PostMessageBroker + useTool
 
 ### Task 35: Deployment Config
 
-**Agent:** haiku | **Files:** `.env.example`, `vercel.json`, `Procfile`
+**Agent:** haiku | **Files:** `.env.example`, `vercel.json`, `railway.json`
 
 - [ ] .env.example: OPENAI_API_KEY, OPENAI_MODEL, DATABASE_URL, REDIS_URL, CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REDIRECT_URI, VITE_API_URL, VITE_CLERK_PUBLISHABLE_KEY, PORT.
 - [ ] vercel.json: `{ "buildCommand": "vite build", "outputDirectory": "dist", "framework": "vite" }`.
-- [ ] Procfile: `web: cd server && npm run build && node dist/index.js`.
+- [ ] railway.json (NOT Procfile — Railway uses its own config): `{ "$schema": "https://railway.app/railway.schema.json", "build": { "builder": "NIXPACKS" }, "deploy": { "startCommand": "cd server && node dist/index.js", "restartPolicyType": "ON_FAILURE" } }`. Also add `"build": "cd server && npm run build"` to server package.json scripts if not present.
 - [ ] Commit: `chore: deployment config`
 
 ---
@@ -587,9 +624,9 @@ Convergence task — wires useChat + useIframeApps + PostMessageBroker + useTool
 
 | Task | Depends On | Blocks | Agent |
 |------|-----------|--------|-------|
-| T1: Fork to GitLab | — | T2 | sonnet |
-| T2: Strip Electron | T1 | T3 | sonnet |
-| T3: Server Scaffold | T2 | T4-T9 | haiku |
+| T1: Fork to GitLab | — | T2, T3, T10 | sonnet |
+| T2: Strip Electron | T1 | T11-15, T27 | sonnet |
+| T3: Server Scaffold | T1 | T4-T9, T16-17, T24, T29-31, T34, T37 | haiku |
 | T4: Session Manager | T3 | — | haiku |
 | T5: DB Schema + Client | T3 | T6, T7 | haiku |
 | T6: Seed Data | T5 | T32 | haiku |
@@ -610,43 +647,47 @@ Convergence task — wires useChat + useIframeApps + PostMessageBroker + useTool
 | T21: Go Engine | T10 | T22 | sonnet |
 | T22: Go Board UI | T21 | T23 | sonnet |
 | T23: Go Bridge | T10, T22 | — | haiku |
-| T24: Spotify OAuth | T3 | T25 | haiku |
-| T25: Spotify API Proxy | T24 | — | haiku |
-| T26: Spotify App UI | T10 | — | sonnet |
+| T24: Spotify OAuth | T3 | T25, T26 | haiku |
+| T25: Spotify API Proxy | T24 | T26 | haiku |
+| T26: Spotify App UI | T10, T24, T25 | — | sonnet |
 | T27: API Client | T2 | T28 | haiku |
 | T28: Chat Hook | T27 | T33 | sonnet |
-| T29: Clerk Auth | T3 | — | haiku |
+| T29: Clerk Auth (server) | T3 | T38 | haiku |
 | T30: Rate Limiting | T3 | — | haiku |
 | T31: Context Manager | T3 | T32 | haiku |
-| T32: Wire Backend E2E | T6, T7, T9, T16, T17, T31 | — | opus |
-| T33: Wire Frontend E2E | T11-15, T28 | — | opus |
+| T32: Wire Backend E2E | T6, T7, T8, T9, T16, T17, T31, T37 | — | opus |
+| T33: Wire Frontend E2E | T11-15, T27, T28, T38 | — | opus |
 | T34: Static Serving | T3 | — | haiku |
 | T35: Deploy Config | T2, T3 | — | haiku |
 | T36: Docs | — | — | sonnet |
+| T37: PII Proxy | T3 | T32 | haiku |
+| T38: Clerk Frontend | T29 | T33 | haiku |
 
 ### Shared Files
 
-- `server/src/index.ts` — T7, T9, T24, T25, T29, T30, T34 (all additive, merge-safe)
-- Root `package.json` — T2, T34
+- `server/src/index.ts` — T7, T9, T24, T25, T29, T30, T34 (all additive import + `app.use`, merge-safe)
+- Root `package.json` — T2, T34 (run `pnpm install` after T34 merge to regenerate lockfile)
 
 ### Execution Waves
 
 ```
-Wave 1 (seq):    [T1 -> T2 -> T3]                                  foundation
+Wave 1 (seq):    [T1] then [T2, T3] parallel                       foundation
 Wave 2 (7):      [T4, T5, T8, T10, T11, T12, T13]                  core services + frontend components
 Wave 3 (7):      [T6, T7, T9, T14, T15, T16, T17]                  routes + remaining components
-Wave 4 (7):      [T18, T19, T21, T22, T24, T27, T36]               apps + API client + docs
+Wave 4 (7):      [T18, T19, T21, T22, T24, T27, T37]               apps + API client + PII proxy
 Wave 5 (7):      [T20, T23, T25, T26, T28, T29, T30]               bridges + spotify + auth
-Wave 6 (5):      [T31, T32, T33, T34, T35]                         convergence + deploy
+Wave 6 (7):      [T31, T34, T35, T36, T38, T32, T33]               context + deploy + convergence
 ```
 
-**Critical path:** T1 -> T2 -> T3 -> T8 -> T9 -> T32 (6 hops)
-**Parallelism:** 36 tasks in 6 waves, max 7 parallel = ~5.1x speedup
+Note: In Wave 6, T32 and T33 depend on T31 and T38 respectively. Within the wave, T31 and T38 must complete before T32/T33 start. The executor should dispatch T31, T34, T35, T36, T38 first, then T32 and T33 after their deps resolve.
+
+**Critical path:** T1 -> T3 -> T8 -> T9 -> T32 (5 hops, T2 parallel with T3)
+**Parallelism:** 38 tasks in 6 waves, max 7 parallel = ~5.4x speedup
 
 ### Execution Strategy
 
 > **For Claude:** Use `parallel-plan-executor` with the Execution Protocol defined at the top of this plan.
 
-Per wave: dispatch up to 7 agents in parallel worktrees. Each agent follows TDD via `task-executor`. After wave, run two-stage review (haiku check -> sonnet fix if needed). Merge to main, resolve `server/src/index.ts` conflicts (additive). Integration test on merged main before next wave.
+Per wave: dispatch up to 7 agents in parallel worktrees. Each agent follows TDD via `task-executor`. After wave, run two-stage review (haiku check -> sonnet fix if needed). Merge to main, resolve `server/src/index.ts` conflicts (additive). Run `pnpm install` after any wave that modifies package.json. Integration test on merged main before next wave.
 
-**Agent tiers:** 22 haiku (focused single-file), 10 sonnet (UI/multi-file), 2 opus (convergence T32+T33).
+**Agent tiers:** 24 haiku (focused single-file), 10 sonnet (UI/multi-file), 2 opus (convergence T32+T33). New tasks from review: T37 (PII proxy, haiku), T38 (Clerk frontend, haiku).
