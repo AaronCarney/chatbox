@@ -12,6 +12,55 @@
 
 ---
 
+## Execution Protocol
+
+### Per-Task (enforced by `task-executor` skill)
+
+Each sub-agent MUST follow TDD:
+1. **Write failing test first** — unit test covering the task's core behavior
+2. **Run test, confirm it fails** — verify the test is meaningful
+3. **Write minimal implementation** to make the test pass
+4. **Run test, confirm it passes**
+5. **Commit** with conventional commit message
+
+For tasks without testable server logic (HTML/CSS apps, config files), the sub-agent must still verify the output works: load in browser, check no errors in console, validate file syntax.
+
+### Per-Wave (enforced by `parallel-plan-executor`)
+
+After all tasks in a wave complete:
+
+1. **Haiku review agent** scans each worktree:
+   - Do all tests pass? (`cd server && pnpm test`)
+   - Do the files from the task description actually exist?
+   - Are there lint errors, TypeScript errors, or broken imports?
+   - Does the code match the task spec (correct function signatures, expected exports)?
+
+2. **If reviewer finds issues** — a **Sonnet fix agent** is dispatched to the worktree to fix before merge. The fix agent:
+   - Reads the review findings
+   - Fixes the specific issues (not a rewrite — targeted corrections)
+   - Re-runs tests to confirm the fix
+   - Commits the fix
+
+3. **Merge to main** — all worktrees merged. `server/src/index.ts` conflicts resolved (all changes are additive import + `app.use` lines).
+
+4. **Integration check** — run full test suite on merged main: `cd server && pnpm test`. If failures, dispatch Sonnet agent to fix before proceeding to next wave.
+
+### Agent Model Assignment
+
+Each task has an **Agent** annotation specifying the model:
+- **haiku** — focused, single-file tasks with clear inputs/outputs (22 tasks)
+- **sonnet** — tasks requiring UI judgment, multi-file coordination, or SSE parsing (10 tasks)
+- **opus** — convergence tasks requiring understanding of full system architecture (2 tasks: T32, T33)
+
+### Test Commands
+
+- Server tests: `cd server && pnpm test`
+- SDK tests: `pnpm vitest run tests/sdk/`
+- Frontend dev: `pnpm dev` (visual verification)
+- Full suite: `cd server && pnpm test && cd .. && pnpm vitest run tests/`
+
+---
+
 ## File Structure
 
 ```
@@ -596,8 +645,8 @@ Wave 6 (5):      [T31, T32, T33, T34, T35]                         convergence +
 
 ### Execution Strategy
 
-> **For Claude:** Use `parallel-plan-executor` to execute with wave-based parallelization.
+> **For Claude:** Use `parallel-plan-executor` with the Execution Protocol defined at the top of this plan.
 
-Each wave: dispatch up to 7 agents in parallel worktrees. After wave completes, merge all to main, resolve `server/src/index.ts` conflicts (additive imports + registrations), run test suite.
+Per wave: dispatch up to 7 agents in parallel worktrees. Each agent follows TDD via `task-executor`. After wave, run two-stage review (haiku check -> sonnet fix if needed). Merge to main, resolve `server/src/index.ts` conflicts (additive). Integration test on merged main before next wave.
 
-**Agent assignment:** 22 haiku, 10 sonnet, 2 opus (convergence only). Opus reserved for T32 (wire backend) and T33 (wire frontend) which require understanding the full system.
+**Agent tiers:** 22 haiku (focused single-file), 10 sonnet (UI/multi-file), 2 opus (convergence T32+T33).
