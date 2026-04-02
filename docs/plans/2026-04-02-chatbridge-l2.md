@@ -420,14 +420,110 @@ Dependencies: Wave 4 complete.
 
 ---
 
+---
+
 ## Dependency Graph
 
+### Task Dependencies
+
+| Task | Depends On | Blocks | Files Owned |
+|------|-----------|--------|-------------|
+| T1: Fork + Strip Chatbox | — | T2, T6-T9, T18 | `vite.config.ts`, `src/renderer/platform/*`, `package.json` |
+| T2: Express Server Scaffold | T1 | T3-T5, T10-T12, T15, T19-T21 | `server/src/index.ts`, `server/src/routes/health.ts`, `server/package.json` |
+| T3: Redis Session Manager | T2 | — | `server/src/services/session.ts` |
+| T4: PostgreSQL + App Registry | T2 | T22 | `server/src/db/*`, `server/src/routes/apps.ts` |
+| T5: LLM Proxy + SSE | T2 | T22 | `server/src/services/llm.ts`, `server/src/routes/chat.ts` |
+| T6: ChatBridge SDK | T1 | T13, T14, T17 | `sdk/chatbridge-sdk.js` |
+| T7: Iframe Manager | T1 | T23 | `src/renderer/components/iframe/IframeManager.tsx`, `src/renderer/hooks/useIframeApps.ts` |
+| T8: PostMessage Broker | T1 | T23 | `src/renderer/components/iframe/PostMessageBroker.ts`, `src/renderer/hooks/useToolExecution.ts` |
+| T9: App Card + Indicator | T1 | T23 | `src/renderer/components/iframe/AppCard.tsx`, `src/renderer/components/chat/ToolCallIndicator.tsx` |
+| T10: Tool Router | T2 | T22 | `server/src/services/tools.ts` |
+| T11: Safety Pipeline | T2 | T22 | `server/src/middleware/safety.ts` |
+| T12: Context Manager | T2 | — | `server/src/services/context.ts` |
+| T13: Chess App | T6 | — | `apps/chess/*` |
+| T14: Go App | T6 | — | `apps/go/*` |
+| T15: Spotify OAuth Proxy | T2 | T16 | `server/src/routes/oauth.ts` |
+| T16: Spotify API Proxy | T15 | — | `server/src/routes/spotify.ts` |
+| T17: Spotify App UI | T6 | — | `apps/spotify/*` |
+| T18: Frontend Chat Hook | T1 | T23 | `src/renderer/services/api.ts`, `src/renderer/hooks/useChat.ts` |
+| T19: Clerk Auth | T2 | — | `server/src/middleware/auth.ts` |
+| T20: Rate Limiting | T2 | — | `server/src/middleware/rateLimit.ts` |
+| T21: Static Serving + Dev Scripts | T2 | — | (modifies `server/src/index.ts`, root `package.json`) |
+| T22: Wire Tool Orchestration | T4, T5, T10, T11 | — | (modifies `server/src/routes/chat.ts`) |
+| T23: Wire Frontend Integration | T7, T8, T9, T18 | — | `src/renderer/components/ChatBridgeApp.tsx` |
+| T24: Deployment Config | T1, T2 | — | `.env.example`, `vercel.json`, `Procfile` |
+| T25: Cost Analysis | — | — | `docs/cost-analysis.md` |
+| T26: README + API Docs | — | — | `README.md`, `docs/api.md` |
+
+### Shared Files
+
+Files modified by multiple tasks (resolved by worktree merge — all changes are additive import + registration lines):
+
+- `server/src/index.ts` — T4, T5, T15, T16, T19, T20, T21 (each adds route/middleware registration)
+- Root `package.json` — T1 (strip Electron deps), T21 (add concurrently)
+
+### Execution Waves (Optimized)
+
 ```
-Wave 1: [T1] -> [T2]                           (sequential)
-Wave 2: [T3, T4, T5, T6, T7, T8, T9]          (7 parallel)
-Wave 3: [T10, T11, T12, T13, T14]              (5 parallel)
-Wave 4: [T15, T16, T17, T18, T19, T20, T21]    (7 parallel)
-Wave 5: [T22, T23, T24, T25, T26]              (5 parallel)
+Wave 1 (sequential):  [T1 -> T2]                              — repo foundation
+Wave 2 (7 parallel):  [T3, T4, T5, T6, T7, T8, T9]           — core infrastructure
+Wave 3 (7 parallel):  [T10, T11, T12, T13, T14, T15, T18]     — orchestration + apps
+Wave 4 (7 parallel):  [T16, T17, T19, T20, T21, T24, T25]     — spotify wiring + hardening
+Wave 5 (3 parallel):  [T22, T23, T26]                         — convergence + docs
 ```
 
-26 tasks, 5 waves. Max 7 parallel agents per wave.
+**Critical path:** T1 -> T2 -> T5 -> T22 (server foundation -> LLM proxy -> end-to-end wiring) = 4 sequential hops across 5 waves
+
+**Parallelism factor:** 26 tasks in 5 waves (2 sequential + 24 across 4 parallel waves) = ~5.2x speedup vs sequential
+
+### Wave Promotion Notes
+
+Tasks promoted from original plan for better parallelism:
+- **T10, T11, T12** promoted to Wave 3 (were Wave 3 already — confirmed no cross-deps with Wave 2 tasks)
+- **T15** (Spotify OAuth) promoted to Wave 3 — depends only on T2, not on any Wave 2 task
+- **T18** (Frontend Chat Hook) promoted to Wave 3 — depends only on T1, makes HTTP calls without importing from T5
+
+### Execution Strategy
+
+> **For Claude:** Use `parallel-plan-executor` skill to execute this plan with wave-based parallelization.
+
+**Wave 1** — Sequential on main branch
+- T1: Fork Chatbox, strip Electron, verify web build
+- T2: Scaffold Express server with health check
+- After: commit to main, verify both frontend and server run
+
+**Wave 2** — 7 parallel worktrees
+- T3 worktree: `wt-t03-session-manager`
+- T4 worktree: `wt-t04-app-registry`
+- T5 worktree: `wt-t05-llm-proxy`
+- T6 worktree: `wt-t06-sdk`
+- T7 worktree: `wt-t07-iframe-manager`
+- T8 worktree: `wt-t08-postmessage-broker`
+- T9 worktree: `wt-t09-app-cards`
+- After: merge all, resolve `server/src/index.ts` conflicts (additive), run full test suite
+
+**Wave 3** — 7 parallel worktrees
+- T10 worktree: `wt-t10-tool-router`
+- T11 worktree: `wt-t11-safety-pipeline`
+- T12 worktree: `wt-t12-context-manager`
+- T13 worktree: `wt-t13-chess-app`
+- T14 worktree: `wt-t14-go-app`
+- T15 worktree: `wt-t15-spotify-oauth`
+- T18 worktree: `wt-t18-chat-hook`
+- After: merge all, resolve index.ts conflicts, run full test suite
+
+**Wave 4** — 7 parallel worktrees
+- T16 worktree: `wt-t16-spotify-proxy`
+- T17 worktree: `wt-t17-spotify-app`
+- T19 worktree: `wt-t19-clerk-auth`
+- T20 worktree: `wt-t20-rate-limiting`
+- T21 worktree: `wt-t21-static-serving`
+- T24 worktree: `wt-t24-deploy-config`
+- T25 worktree: `wt-t25-cost-analysis`
+- After: merge all, resolve index.ts conflicts, run full test suite
+
+**Wave 5** — 3 parallel worktrees (convergence)
+- T22 worktree: `wt-t22-wire-orchestration` (modifies chat.ts to integrate tools+safety+db)
+- T23 worktree: `wt-t23-wire-frontend` (creates ChatBridgeApp wiring all components)
+- T26 worktree: `wt-t26-docs`
+- After: merge all, run full test suite, manual smoke test of complete flow
