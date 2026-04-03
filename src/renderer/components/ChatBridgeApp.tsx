@@ -203,6 +203,37 @@ export function ChatBridgeApp() {
           break
         }
 
+        case 'search_tracks':
+        case 'get_recommendations': {
+          const activeApp = getActiveApp()
+          if (activeApp) {
+            const result = await dispatchToolToApp(id, name, parseArgs(), activeApp)
+            addToolResult(id, JSON.stringify(result))
+
+            // Render as native AppCard (two-tier: card instead of iframe-only)
+            const tracks = (result as any)?.tracks
+            if (Array.isArray(tracks)) {
+              setCompletedActivities((prev) => [
+                ...prev,
+                {
+                  appName: 'Spotify',
+                  type: 'result' as const,
+                  payload: {
+                    title: name === 'search_tracks' ? 'Search Results' : 'Recommendations',
+                    items: tracks.slice(0, 5).map((t: any) => ({
+                      label: t.name || t.id,
+                      value: t.artist || (t.artists?.[0]?.name ?? ''),
+                    })),
+                  },
+                },
+              ])
+            }
+          } else {
+            addToolResult(id, JSON.stringify({ error: 'No active app' }))
+          }
+          break
+        }
+
         default: {
           const activeApp = getActiveApp()
           if (activeApp) {
