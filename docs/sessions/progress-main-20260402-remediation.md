@@ -37,10 +37,14 @@
 1. ~~Deploy to Railway~~ DONE
 2. ~~Deploy frontend to Vercel~~ DONE
 3. ~~Cloudflare DNS~~ DONE
-4. **Push to GitLab** — `git push gitlab main --force` (needs SSH from user's terminal)
-5. **Demo video** (3-5 min) — user records
-6. **Cost analysis** — `docs/cost-analysis.md` exists, may need updating with actual dev spend
-7. **Personal website** — update deployment page with live URLs
+4. ~~Portfolio page~~ DONE — committed + deployed to aaroncarney.me
+5. ~~Chess/Go bug fixes + QoL~~ DONE — undo, promotion picker, coords, invalid feedback
+6. ~~Apps served from Vercel~~ DONE — moved to `src/renderer/public/`, fixed iframe_url field
+7. **NEXT: Execute security hardening L2** — `docs/plans/2026-04-03-security-hardening-l2.md` (8 tasks, 4 waves). Removes all Chatbox direct-LLM paths. Use `parallel-plan-executor`.
+8. **DOS emulator setup** — user collecting game files from Internet Archive
+9. **Push to GitLab** — `git push gitlab main --force` (needs SSH from user's terminal)
+10. **Demo video** (3-5 min) — user records
+11. **Cost analysis** — `docs/cost-analysis.md` exists, may need updating with actual dev spend
 
 ## Key Commits (remediation)
 ```
