@@ -81,6 +81,19 @@ export function ChatBridgeApp() {
       console.info('[ChatBridge] App state update received:', data)
     })
 
+    // Use wildcard to get full envelope (includes source = appId)
+    broker.on('*', (envelope: unknown) => {
+      const msg = envelope as { type?: string; source?: string; payload?: unknown } | null
+      if (msg?.type === 'app.save' && msg.source) {
+        try {
+          const key = 'chatbridge:save:' + msg.source
+          localStorage.setItem(key, JSON.stringify(msg.payload))
+        } catch (e) {
+          console.warn('[ChatBridge] Failed to save app state:', e)
+        }
+      }
+    })
+
     return () => broker.destroy()
   }, [resolveToolCall])
 
@@ -167,7 +180,13 @@ export function ChatBridgeApp() {
           setTimeout(() => {
             const iframe = iframeRefs.current.get(appId)
             if (iframe && brokerRef.current) {
-              brokerRef.current.launchApp(iframe, appId, { sessionId: sessionIdRef.current })
+              // Load saved state if available
+              let savedState: unknown = undefined
+              try {
+                const raw = localStorage.getItem('chatbridge:save:' + appId)
+                if (raw) savedState = JSON.parse(raw)
+              } catch { /* ignore */ }
+              brokerRef.current.launchApp(iframe, appId, { sessionId: sessionIdRef.current, savedState })
             }
           }, 500)
           addToolResult(id, JSON.stringify({ launched: appId }))

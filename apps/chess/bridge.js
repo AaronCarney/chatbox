@@ -1,42 +1,58 @@
 (function() {
   var game = null;
 
-  function init() {
-    game = ChessEngine.newGame();
+  function saveGame() {
+    if (game) ChatBridge.saveState(ChessEngine.serialize(game));
+  }
+
+  function init(savedState) {
+    if (savedState && savedState.fen) {
+      game = ChessEngine.loadGame(savedState.fen);
+    } else {
+      game = ChessEngine.newGame();
+    }
     ChessBoard.render(game);
     ChessBoard.updateStatus(game);
     ChatBridge.resize(500);
   }
 
-  // Wrap the ChessBoard click handler to send state updates
-  const originalOnSquareClick = ChessBoard.onSquareClick;
+  // New game button
+  document.getElementById('btn-new-game').addEventListener('click', function() {
+    game = ChessEngine.newGame();
+    ChessBoard.clearSelection();
+    ChessBoard.render(game);
+    ChessBoard.updateStatus(game);
+    saveGame();
+    ChatBridge.sendState(ChessEngine.getState(game));
+  });
+
+  // Wrap click handler to save + send state after moves
+  var originalOnSquareClick = ChessBoard.onSquareClick;
   ChessBoard.onSquareClick = function(name, gameObj) {
-    const result = originalOnSquareClick.call(ChessBoard, name, gameObj);
-
-    // If a move was made (result is truthy), send state update
+    var result = originalOnSquareClick.call(ChessBoard, name, gameObj);
     if (result) {
+      saveGame();
       ChatBridge.sendState(ChessEngine.getState(game));
-
-      // Check if game is over after the move
       if (game.game_over()) {
         ChatBridge.complete('success', {
           fen: game.fen(),
-          result: 'Game Over',
-          moves: game.history().length
+          result: game.in_checkmate() ? 'Checkmate' : 'Draw',
+          moves: game.history().length,
         });
       }
     }
-
     return result;
   };
 
-  // Handle tool invocations from ChatBridge
+  // Handle tool invocations
   ChatBridge.on('toolInvoke', function(payload, requestId) {
     switch (payload.name) {
       case 'start_game':
         game = ChessEngine.newGame();
+        ChessBoard.clearSelection();
         ChessBoard.render(game);
         ChessBoard.updateStatus(game);
+        saveGame();
         ChatBridge.respondToTool(requestId, ChessEngine.getState(game));
         break;
 
@@ -45,14 +61,13 @@
         if (result) {
           ChessBoard.render(game);
           ChessBoard.updateStatus(game);
+          saveGame();
           ChatBridge.respondToTool(requestId, ChessEngine.getState(game));
-
-          // Check if game is over after the move
           if (game.game_over()) {
             ChatBridge.complete('success', {
               fen: game.fen(),
-              result: 'Game Over',
-              moves: game.history().length
+              result: game.in_checkmate() ? 'Checkmate' : 'Draw',
+              moves: game.history().length,
             });
           }
         } else {
@@ -69,7 +84,7 @@
           fen: game.fen(),
           turn: game.turn(),
           legalMoves: ChessEngine.getLegalMoves(game),
-          moveCount: game.history().length
+          moveCount: game.history().length,
         });
         break;
 
@@ -78,12 +93,14 @@
     }
   });
 
-  // Register state provider
-  ChatBridge.onStateRequest(() => game ? ChessEngine.getState(game) : { error: 'No game active' });
+  ChatBridge.onStateRequest(function() {
+    return game ? ChessEngine.getState(game) : { error: 'No game active' };
+  });
 
-  // Register launch handler
-  ChatBridge.on('launch', init);
+  ChatBridge.on('launch', function(config) {
+    init(config && config.savedState);
+  });
 
-  // Auto-init on script load
+  // Auto-init without saved state (will be re-initialized on launch with state)
   init();
 })();

@@ -5,6 +5,8 @@ window.ChessBoard = (function () {
   };
 
   let selectedSquare = null;
+  let lastMoveFrom = null;
+  let lastMoveTo = null;
 
   function squareName(row, col) {
     return String.fromCharCode(97 + col) + (8 - row);
@@ -12,7 +14,8 @@ window.ChessBoard = (function () {
 
   function render(game) {
     const container = document.getElementById('board-container');
-    container.innerHTML = '';
+    // Clear by removing children (avoids innerHTML)
+    while (container.firstChild) container.removeChild(container.firstChild);
 
     const board = document.createElement('div');
     board.className = 'board';
@@ -20,6 +23,14 @@ window.ChessBoard = (function () {
     const legalTargets = selectedSquare
       ? game.moves({ square: selectedSquare, verbose: true }).map(m => m.to)
       : [];
+
+    // Get last move for highlight
+    const hist = game.history({ verbose: true });
+    if (hist.length > 0) {
+      const last = hist[hist.length - 1];
+      lastMoveFrom = last.from;
+      lastMoveTo = last.to;
+    }
 
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
@@ -30,6 +41,7 @@ window.ChessBoard = (function () {
 
         if (name === selectedSquare) sq.classList.add('selected');
         if (legalTargets.includes(name)) sq.classList.add('legal-move');
+        if (name === lastMoveFrom || name === lastMoveTo) sq.classList.add('last-move');
 
         const piece = game.get(name);
         if (piece) sq.textContent = PIECE_CHARS[piece.color === 'w' ? piece.type.toUpperCase() : piece.type] || '';
@@ -48,30 +60,41 @@ window.ChessBoard = (function () {
 
     if (game.in_checkmate()) {
       statusEl.textContent = (game.turn() === 'w' ? 'Black' : 'White') + ' wins by checkmate!';
+      statusEl.className = 'status game-over';
     } else if (game.in_draw()) {
       statusEl.textContent = 'Draw';
+      statusEl.className = 'status game-over';
     } else if (game.in_check()) {
-      statusEl.textContent = (game.turn() === 'w' ? 'White' : 'Black') + ' is in check. ' +
-        (game.turn() === 'w' ? 'White' : 'Black') + "'s turn.";
+      statusEl.textContent = (game.turn() === 'w' ? 'White' : 'Black') + ' is in check.';
+      statusEl.className = 'status in-check';
     } else {
-      statusEl.textContent = (game.turn() === 'w' ? 'White' : 'Black') + "'s turn.";
+      statusEl.textContent = (game.turn() === 'w' ? 'White' : 'Black') + "'s turn";
+      statusEl.className = 'status';
     }
 
-    historyEl.textContent = game.history().join(', ');
+    // Format move history as numbered pairs
+    var moves = game.history();
+    var formatted = [];
+    for (var i = 0; i < moves.length; i += 2) {
+      var num = Math.floor(i / 2) + 1;
+      formatted.push(num + '. ' + moves[i] + (moves[i + 1] ? ' ' + moves[i + 1] : ''));
+    }
+    historyEl.textContent = formatted.join('  ');
+    historyEl.scrollTop = historyEl.scrollHeight;
   }
 
   function onSquareClick(name, game) {
-    // Attempt move if a square is already selected and we click a different square
+    if (game.game_over()) return null;
+
     if (selectedSquare && selectedSquare !== name) {
-      const result = ChessEngine.makeMove(game, selectedSquare, name);
+      var result = ChessEngine.makeMove(game, selectedSquare, name);
       selectedSquare = null;
       render(game);
       updateStatus(game);
       return result;
     }
 
-    // Select own piece
-    const piece = game.get(name);
+    var piece = game.get(name);
     if (piece && piece.color === game.turn()) {
       selectedSquare = name;
     } else {
@@ -83,5 +106,9 @@ window.ChessBoard = (function () {
     return null;
   }
 
-  return { render, updateStatus, onSquareClick };
+  function clearSelection() {
+    selectedSquare = null;
+  }
+
+  return { render, updateStatus, onSquareClick, clearSelection };
 })();

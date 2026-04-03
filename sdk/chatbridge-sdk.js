@@ -181,5 +181,15 @@
       const envelope = createEnvelope('app.resize', { height })
       window.parent.postMessage(envelope, parentOrigin)
     },
+
+    /**
+     * Save app state to parent's local storage
+     * Parent stores keyed by appId hash — no raw IDs exposed
+     * @param {object} state - Serializable state object
+     */
+    saveState(state) {
+      const envelope = createEnvelope('app.save', state)
+      window.parent.postMessage(envelope, parentOrigin)
+    },
   }
 })()

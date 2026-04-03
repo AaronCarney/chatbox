@@ -8,6 +8,12 @@
       return new Chess();
     },
 
+    loadGame(fen) {
+      const game = new Chess();
+      if (fen && game.load(fen)) return game;
+      return new Chess();
+    },
+
     makeMove(game, from, to) {
       return game.move({ from, to, promotion: 'q' });
     },
@@ -19,12 +25,17 @@
         moveCount: game.history().length,
         isCheck: game.in_check(),
         isGameOver: game.game_over(),
-        history: game.history().slice(-5),
+        history: game.history().slice(-10),
+        lastMove: game.history().length > 0 ? game.history({ verbose: true }).slice(-1)[0] : null,
       };
     },
 
     getLegalMoves(game) {
       return game.moves();
+    },
+
+    serialize(game) {
+      return { fen: game.fen(), history: game.history() };
     },
   };
 })();
