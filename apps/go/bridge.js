@@ -99,6 +99,11 @@ ChatBridge.on('toolInvoke', function(payload, requestId) {
 });
 
 /**
+ * Register state provider
+ */
+ChatBridge.onStateRequest(() => engine ? GoEngine.getState(engine) : { error: 'No game active' });
+
+/**
  * Register launch handler
  */
 ChatBridge.on('launch', function(config) {

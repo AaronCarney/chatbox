@@ -68,6 +68,21 @@ export class PostMessageBroker {
     }
   }
 
+  requestState(appId: string, iframe: HTMLIFrameElement): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const channel = new MessageChannel();
+      const timeout = setTimeout(() => {
+        reject(new Error(`State request timed out for ${appId}`));
+      }, 5000);
+      channel.port1.onmessage = (event) => {
+        clearTimeout(timeout);
+        resolve(event.data?.payload ?? event.data);
+      };
+      channel.port1.start();
+      this.sendToIframe(iframe, 'state.request', { appId }, channel.port2);
+    });
+  }
+
   launchApp(
     iframe: HTMLIFrameElement,
     appId: string

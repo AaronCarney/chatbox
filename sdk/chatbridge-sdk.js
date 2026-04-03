@@ -90,6 +90,19 @@
       return
     }
 
+    // Handle state.request: call stateRequest handler and reply via port
+    if (data.type === 'state.request') {
+      if (handlers['stateRequest']) {
+        const port = ports && ports[0]
+        Promise.resolve(handlers['stateRequest'](data.payload)).then((state) => {
+          if (port) {
+            port.postMessage({ schema: SCHEMA, version: VERSION, type: 'state.response', payload: state })
+          }
+        })
+      }
+      return
+    }
+
     // Handle other message types by mapping to camelCase handler
     const handlerName = wireToHandlerName(data.type)
     if (handlers[handlerName]) {
@@ -146,6 +159,14 @@
     respondToTool(requestId, result) {
       const envelope = createEnvelope('tool.result', result, { requestId })
       window.parent.postMessage(envelope, '*')
+    },
+
+    /**
+     * Register a handler for state requests from parent
+     * @param {function} handler - Returns current app state (sync or async)
+     */
+    onStateRequest(handler) {
+      handlers['stateRequest'] = handler
     },
 
     /**

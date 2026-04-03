@@ -65,7 +65,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 
     // Trim history and build LLM messages
     const trimmed = trimHistory(sanitizedMessages);
-    const llmMessages = buildMessages(trimmed, tools);
+    const llmMessages = buildMessages(trimmed, tools, apps, activeAppId);
 
     // Stream from LLM
     const stream = streamChat(llmMessages, tools);

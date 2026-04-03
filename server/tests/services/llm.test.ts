@@ -85,6 +85,20 @@ describe('LLM Service', () => {
       expect(messages.length).toBe(1); // just system
       expect(messages[0].role).toBe('system');
     });
+
+    it('injects active apps and current app into system prompt', () => {
+      const history = [{ role: 'user', content: 'hi' }];
+      const tools = [{ type: 'function', function: { name: 'start_game' } }];
+      const apps = [
+        { id: 'chess', name: 'Chess' },
+        { id: 'go', name: 'Go' },
+        { id: 'spotify', name: 'Spotify' },
+      ];
+      const result = buildMessages(history, tools, apps, 'chess');
+      const systemContent = result[0].content;
+      expect(systemContent).toContain('ACTIVE APPS: Chess, Go, Spotify');
+      expect(systemContent).toContain('CURRENT APP: chess');
+    });
   });
 
   describe('streamChat', () => {

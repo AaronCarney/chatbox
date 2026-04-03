@@ -31,6 +31,7 @@ export const PLATFORM_TOOLS: OpenAITool[] = [
     type: 'function',
     function: {
       name: 'launch_app',
+      description: 'Launch a third-party app (chess, go, spotify) in the chat. Use when the student asks to play a game or use an app.',
       parameters: {
         type: 'object',
         properties: { app_id: { type: 'string' } },
@@ -44,6 +45,7 @@ export const PLATFORM_TOOLS: OpenAITool[] = [
     type: 'function',
     function: {
       name: 'get_app_state',
+      description: 'Get the current state of an active app (e.g. chess board position, game score). Use when the student asks about what is happening in the app.',
       parameters: {
         type: 'object',
         properties: { app_id: { type: 'string' } },
@@ -57,6 +59,7 @@ export const PLATFORM_TOOLS: OpenAITool[] = [
     type: 'function',
     function: {
       name: 'get_available_apps',
+      description: 'List all available third-party apps the student can use. Use when the student asks what apps or games are available.',
       parameters: {
         type: 'object',
         properties: {},

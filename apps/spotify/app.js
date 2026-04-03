@@ -79,7 +79,7 @@
   ChatBridge.on('toolInvoke', function (payload, requestId) {
     var sessionId = getSessionId();
 
-    if (payload.tool === 'search_tracks') {
+    if (payload.name === 'search_tracks') {
       fetch('/api/spotify/search?q=' + encodeURIComponent(payload.arguments.query) + '&session_id=' + sessionId)
         .then(function (res) { return res.json(); })
         .then(function (data) {
@@ -94,7 +94,7 @@
           ChatBridge.respondToTool(requestId, { error: err.message });
         });
 
-    } else if (payload.tool === 'create_playlist') {
+    } else if (payload.name === 'create_playlist') {
       fetch('/api/spotify/playlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +108,7 @@
           ChatBridge.respondToTool(requestId, { error: err.message });
         });
 
-    } else if (payload.tool === 'add_to_playlist') {
+    } else if (payload.name === 'add_to_playlist') {
       fetch('/api/spotify/playlist/' + payload.arguments.playlist_id + '/tracks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,7 +123,7 @@
           ChatBridge.respondToTool(requestId, { error: err.message });
         });
 
-    } else if (payload.tool === 'get_recommendations') {
+    } else if (payload.name === 'get_recommendations') {
       var seeds = payload.arguments.seed_track_ids.join(',');
       fetch('/api/spotify/recommendations?seeds=' + encodeURIComponent(seeds) + '&session_id=' + sessionId)
         .then(function (res) { return res.json(); })
@@ -135,6 +135,10 @@
           ChatBridge.respondToTool(requestId, { error: err.message });
         });
     }
+  });
+
+  ChatBridge.onStateRequest(function () {
+    return { authenticated: document.getElementById('connected').style.display === 'block' };
   });
 
   ChatBridge.on('launch', function () {

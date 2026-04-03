@@ -78,6 +78,9 @@
     }
   });
 
+  // Register state provider
+  ChatBridge.onStateRequest(() => game ? ChessEngine.getState(game) : { error: 'No game active' });
+
   // Register launch handler
   ChatBridge.on('launch', init);
 
