@@ -50,7 +50,7 @@ export async function* streamChat(
     }
   }
 
-  const stream = await openai.chat.completions.create(params);
+  const stream = await openai.chat.completions.create(params as OpenAI.ChatCompletionCreateParamsStreaming);
 
   for await (const chunk of stream) {
     yield chunk;
