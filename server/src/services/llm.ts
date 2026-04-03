@@ -41,6 +41,7 @@ export async function* streamChat(
     model,
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     stream: true,
+    max_tokens: 1024,
   };
 
   if (tools.length > 0) {

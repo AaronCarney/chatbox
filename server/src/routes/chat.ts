@@ -34,12 +34,22 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     const tools = buildToolsForTurn(apps, activeAppId);
     log.debug({ appCount: apps.length, toolCount: tools.length }, 'tools built');
 
-    // Strip PII from all message roles with string content
-    const sanitizedMessages = messages.map((msg: { role: string; content: string }) => {
-      if (typeof msg.content === 'string') {
-        return { ...msg, content: stripPii(msg.content) };
+    // Strip PII from ALL message roles (user, assistant, tool) and
+    // wrap tool results from history in delimiters (they bypass the toolResult validation path)
+    const sanitizedMessages = messages.map((msg: { role: string; content: string; tool_call_id?: string }) => {
+      let content = msg.content;
+      if (typeof content === 'string') {
+        content = stripPii(content);
+        // Tool messages from history: enforce size cap + wrap with delimiters
+        if (msg.role === 'tool' && content.length > 2048) {
+          content = content.slice(0, 2048);
+          log.warn({ tool_call_id: msg.tool_call_id }, 'tool result in history truncated to 2KB');
+        }
+        if (msg.role === 'tool' && !content.startsWith('<tool-result-')) {
+          content = wrapWithDelimiters(activeAppId || 'unknown', content);
+        }
       }
-      return msg;
+      return { ...msg, content };
     });
 
     // Handle toolResult: validate and append as tool message
