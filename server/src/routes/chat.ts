@@ -6,6 +6,7 @@ import { trimHistory, summarizeAppResult } from '../services/context.js';
 import { stripPii } from '../middleware/pii.js';
 import { getApps } from '../db/client.js';
 import { logger } from '../lib/logger.js';
+import { sessionManager } from '../services/sessionSingleton.js';
 
 const chatRouter = Router();
 
@@ -14,6 +15,12 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
   const requestId = Math.random().toString(36).slice(2, 10);
   const log = logger.child({ requestId, activeAppId, messageCount: messages.length });
   const start = Date.now();
+
+  const userId = (req as any).auth?.userId;
+  const pseudonym = userId ? sessionManager.generatePseudonym(userId) : null;
+  if (pseudonym) {
+    log.info({ pseudonym }, 'session bound');
+  }
 
   log.info({ hasToolResult: !!toolResult }, 'chat request started');
 
