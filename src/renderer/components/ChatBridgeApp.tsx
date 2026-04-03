@@ -176,7 +176,7 @@ export function ChatBridgeApp() {
           const args = parseArgs() as { appId?: string; url?: string; app_id?: string }
           const appId = args.appId ?? args.app_id ?? id
           const app = availableApps.find((a) => a.id === appId)
-          launchApp(appId, args.url ?? (app?.url as string) ?? '')
+          launchApp(appId, args.url ?? (app as any)?.iframe_url ?? '')
           setTimeout(() => {
             const iframe = iframeRefs.current.get(appId)
             if (iframe && brokerRef.current) {
