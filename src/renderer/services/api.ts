@@ -111,3 +111,14 @@ export async function fetchApps(): Promise<any[]> {
 
   return response.json()
 }
+
+/**
+ * Get authorization headers for API requests
+ * @param token The auth token from Clerk
+ * @returns Headers object with Authorization bearer token
+ */
+export function getAuthHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+  }
+}
