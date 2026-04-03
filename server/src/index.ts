@@ -35,8 +35,9 @@ app.use('/api', appsRouter);
 
 // Protected routes - require authentication
 app.use('/api/chat', requireSession);
-app.use('/api/oauth', requireSession);
 app.use('/api', chatRouter);
+
+// OAuth routes - public (popup window has no Clerk session; state param provides CSRF)
 app.use('/api', oauthRouter);
 app.use('/api', spotifyRouter);
 

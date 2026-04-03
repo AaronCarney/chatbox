@@ -31,7 +31,7 @@ export const PLATFORM_TOOLS: OpenAITool[] = [
     type: 'function',
     function: {
       name: 'launch_app',
-      description: 'Launch a third-party app (chess, go, spotify) in the chat. Use when the student asks to play a game or use an app.',
+      description: 'Launch a third-party app in the chat. Available apps: chess, go, dos (DOS Arcade with 18 classic games), spotify. Use when the student asks to play a game or use an app.',
       parameters: {
         type: 'object',
         properties: { app_id: { type: 'string' } },
