@@ -5,10 +5,10 @@
 
 ## Application Context
 - ChatBridge — K-12 AI chat platform with third-party app integration (chess, go, spotify). GauntletAI take-home sprint, 1-week deadline (final Sunday 2026-04-06 11:59 PM CT).
-- Current goal: Execute remediation L2 plan — 16 tasks across 6 waves. ALL 16 TASKS COMPLETE.
+- Current goal: Deployment phase — Railway + Vercel live, remaining: GitLab push, demo video, cost analysis.
 
 ## Position
-- Project: ChatBridge, repo: `/home/context/projects/chatbridge` (symlinked at `projects/chatbridge`), branch: `main`, phase: **implementation** (remediation complete, deployment next)
+- Project: ChatBridge, repo: `/home/context/projects/chatbridge` (symlinked at `projects/chatbridge`), branch: `main`, phase: **deployment** (Railway + Vercel live)
 
 ## L2 Context
 - Original L2 plan (T1-T38): COMPLETE
@@ -26,14 +26,21 @@
 }
 ```
 
+## Deployment State
+- **Railway API:** `https://chatbox-production-d06b.up.railway.app` — LIVE, health check passing
+- **Vercel Frontend:** `https://chatbridge.aaroncarney.me` — LIVE
+- **Cloudflare DNS:** both CNAMEs configured (chatbridge → Vercel, api.chatbridge → Railway)
+- **DB:** PostgreSQL on Railway, schema applied
+- **Env vars set:** Railway (OPENAI_API_KEY, CLERK keys, SPOTIFY_CLIENT_ID, DATABASE_URL, SESSION_SECRET, NODE_ENV). Vercel (VITE_API_URL, VITE_CLERK_PUBLISHABLE_KEY).
+
 ## What's Next
-1. **Deploy to Railway** — user needs to set up Railway project via dashboard (CLI auth failed in WSL). Schema file at `server/src/db/schema.sql`, seed at `server/src/db/seed.ts`. The `railway.json` config is ready.
-2. **Deploy frontend to Vercel** — Vite SPA, env vars: `VITE_API_URL`, `VITE_CLERK_PUBLISHABLE_KEY`
-3. **Cloudflare DNS** — two CNAME records: `chatbridge` → `cname.vercel-dns.com`, `api.chatbridge` → Railway URL. DNS only (grey cloud).
-4. **Push to GitLab** — `git remote add gitlab ssh://git@labs.gauntletai.com:22022/aaroncarney/chatbridge.git && git push gitlab main` (needs SSH from user's terminal)
+1. ~~Deploy to Railway~~ DONE
+2. ~~Deploy frontend to Vercel~~ DONE
+3. ~~Cloudflare DNS~~ DONE
+4. **Push to GitLab** — `git push gitlab main --force` (needs SSH from user's terminal)
 5. **Demo video** (3-5 min) — user records
 6. **Cost analysis** — `docs/cost-analysis.md` exists, may need updating with actual dev spend
-7. **Personal website** — ChatBridge project page created at `personal-website/content/projects/chatbridge.json` and deployment guide at `personal-website/app/(main)/portfolio/chatbridge/deployment/page.tsx`
+7. **Personal website** — update deployment page with live URLs
 
 ## Key Commits (remediation)
 ```
@@ -64,9 +71,6 @@ fd745a6 fix: pass tools + toolChoice to OpenAI API (critical bugfix + C4)
 - Project CLAUDE.md: `CLAUDE.md`
 
 ## Constraints/Blockers
-- Railway CLI auth fails in WSL — user deploying via dashboard
 - GitLab push needs SSH from user's terminal (sandbox blocks)
-- Spotify OAuth needs SPOTIFY_CLIENT_ID/SECRET env vars
-- Clerk needs CLERK_PUBLISHABLE_KEY/SECRET_KEY
-- OpenAI needs OPENAI_API_KEY
+- Spotify client secret not yet provided — Spotify OAuth won't work without it
 - Deadline: Sunday 2026-04-06 11:59 PM CT
