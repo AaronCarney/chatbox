@@ -25,12 +25,12 @@ export class PostMessageBroker {
       return;
     }
 
-    const { type, data } = event.data;
+    const { type, payload } = event.data;
 
     // Call type-specific handlers
     const typeHandlers = this.handlers.get(type);
     if (typeHandlers) {
-      typeHandlers.forEach((handler) => handler(data));
+      typeHandlers.forEach((handler) => handler(payload));
     }
 
     // Call wildcard handlers

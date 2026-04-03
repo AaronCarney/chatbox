@@ -8,10 +8,17 @@ export interface ChatMessage {
 export interface ChatRequest {
   messages: ChatMessage[]
   tools?: any[]
+  activeAppId?: string | null
 }
 
 export interface StreamChunk {
   [key: string]: any
+}
+
+export interface StreamOptions {
+  tools?: any[]
+  activeAppId?: string | null
+  authToken?: string | null
 }
 
 /**
@@ -19,18 +26,24 @@ export interface StreamChunk {
  */
 export async function* streamChat(
   messages: ChatMessage[],
-  tools?: any[]
+  opts?: StreamOptions
 ): AsyncGenerator<StreamChunk, void, unknown> {
   const request: ChatRequest = { messages }
-  if (tools) {
-    request.tools = tools
+  if (opts?.tools) {
+    request.tools = opts.tools
+  }
+  if (opts?.activeAppId) {
+    request.activeAppId = opts.activeAppId
+  }
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (opts?.authToken) {
+    headers['Authorization'] = `Bearer ${opts.authToken}`
   }
 
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(request),
   })
 
@@ -97,12 +110,15 @@ export async function* streamChat(
 /**
  * Fetch available apps from the API
  */
-export async function fetchApps(): Promise<any[]> {
+export async function fetchApps(authToken?: string | null): Promise<any[]> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
   const response = await fetch(`${API_BASE}/api/apps`, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
   })
 
   if (!response.ok) {
@@ -110,15 +126,4 @@ export async function fetchApps(): Promise<any[]> {
   }
 
   return response.json()
-}
-
-/**
- * Get authorization headers for API requests
- * @param token The auth token from Clerk
- * @returns Headers object with Authorization bearer token
- */
-export function getAuthHeaders(token: string): Record<string, string> {
-  return {
-    Authorization: `Bearer ${token}`,
-  }
 }

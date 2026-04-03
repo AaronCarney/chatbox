@@ -76,16 +76,20 @@ export function ChatBridgeApp() {
     if (!trimmed || isStreaming) return
     setInput('')
 
-    // Token fetched for auth context; passed via headers in future api.ts calls
-    await getToken().catch(() => null)
+    const token = await getToken().catch(() => null)
+    const activeApp = getActiveApp()
 
-    const result = await sendMessage(trimmed, [])
+    const result = await sendMessage(trimmed, {
+      tools: [],
+      activeAppId: activeApp?.id ?? null,
+      authToken: token,
+    })
     if (!result || result.type !== 'tool_calls') return
 
     for (const tc of result.toolCalls) {
-      const name: string = tc.function?.name ?? tc.name ?? ''
+      const name: string = tc.name ?? ''
       const id: string = tc.id ?? ''
-      const rawArgs: string = tc.function?.arguments ?? '{}'
+      const rawArgs: string = tc.arguments ?? '{}'
 
       const parseArgs = () => {
         try { return JSON.parse(rawArgs) } catch { return {} }
