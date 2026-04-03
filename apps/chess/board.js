@@ -86,6 +86,14 @@ window.ChessBoard = (function () {
   function onSquareClick(name, game) {
     if (game.game_over()) return null;
 
+    if (selectedSquare && selectedSquare === name) {
+      // Toggle off — deselect
+      selectedSquare = null;
+      render(game);
+      updateStatus(game);
+      return null;
+    }
+
     if (selectedSquare && selectedSquare !== name) {
       var result = ChessEngine.makeMove(game, selectedSquare, name);
       selectedSquare = null;
@@ -108,6 +116,8 @@ window.ChessBoard = (function () {
 
   function clearSelection() {
     selectedSquare = null;
+    lastMoveFrom = null;
+    lastMoveTo = null;
   }
 
   return { render, updateStatus, onSquareClick, clearSelection };

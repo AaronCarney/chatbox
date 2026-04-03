@@ -9,6 +9,9 @@ function init(boardSize, savedState) {
     var restored = GoEngine.deserialize(savedState);
     if (restored) {
       engine = restored;
+      // Sync size selector with restored game
+      var sel = document.getElementById('size-select');
+      if (sel) sel.value = String(engine.size);
       GoBoard.render(engine);
       GoBoard.updateStatus(engine);
       ChatBridge.resize(500);
@@ -21,9 +24,12 @@ function init(boardSize, savedState) {
   ChatBridge.resize(500);
 }
 
+var canvasListenerAttached = false;
 function setupCanvasListener() {
+  if (canvasListenerAttached) return;
   var canvas = document.getElementById('board');
   if (!canvas) return;
+  canvasListenerAttached = true;
 
   canvas.addEventListener('click', function(event) {
     if (!engine || engine.over) return;

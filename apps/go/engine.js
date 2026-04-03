@@ -66,6 +66,9 @@ window.GoEngine = (() => {
     if (game.ko === pos) return { error: 'Ko violation' };
 
     const opponent = game.turn === 1 ? 2 : 1;
+
+    // Snapshot board before mutation for suicide rollback
+    const snapshot = board.slice();
     board[pos] = game.turn;
 
     let capturedCount = 0;
@@ -85,7 +88,8 @@ window.GoEngine = (() => {
 
     const ownGroup = getGroup(board, x, y, size);
     if (ownGroup.liberties === 0) {
-      board[pos] = 0;
+      // Restore entire board — captures may have happened before suicide detected
+      for (let i = 0; i < board.length; i++) board[i] = snapshot[i];
       return { error: 'Suicide move' };
     }
 
