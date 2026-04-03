@@ -110,6 +110,30 @@ export function ChatBridgeApp() {
           break
         }
 
+        case 'get_app_state': {
+          const args = parseArgs() as { app_id?: string }
+          const targetApp = args.app_id
+            ? apps.get(args.app_id)
+            : getActiveApp()
+          if (targetApp && brokerRef.current) {
+            const iframe = iframeRefs.current.get(targetApp.id)
+            if (iframe) {
+              try {
+                const state = await brokerRef.current.requestState(targetApp.id, iframe)
+                addToolResult(id, JSON.stringify(state))
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err)
+                addToolResult(id, JSON.stringify({ error: msg }))
+              }
+            } else {
+              addToolResult(id, JSON.stringify({ error: 'No active iframe ref' }))
+            }
+          } else {
+            addToolResult(id, JSON.stringify({ error: 'No active app' }))
+          }
+          break
+        }
+
         default: {
           const activeApp = getActiveApp()
           if (activeApp && brokerRef.current) {
