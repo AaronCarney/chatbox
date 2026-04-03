@@ -1,7 +1,8 @@
 import { Button, Stack, Text } from '@mantine/core'
 import type { Session } from '@shared/types/session'
 import { useTranslation } from 'react-i18next'
-import { runCompactionWithUIState } from '@/packages/context-management/compaction'
+// Stub: context-management package removed (security hardening)
+const runCompactionWithUIState = (_sessionId: string, _opts?: { force?: boolean }) => Promise.resolve()
 import { AdaptiveModal } from './AdaptiveModal'
 
 interface CompressionModalProps {

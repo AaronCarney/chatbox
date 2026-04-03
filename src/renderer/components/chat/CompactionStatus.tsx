@@ -12,7 +12,8 @@ import { useAtomValue } from 'jotai'
 import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCopied } from '@/hooks/useCopied'
-import { runCompactionWithUIState } from '@/packages/context-management'
+// Stub: context-management package removed (security hardening)
+const runCompactionWithUIState = (_sessionId: string) => Promise.resolve()
 import { compactionUIStateMapAtom, setCompactionUIState } from '@/stores/atoms'
 import { ScalableIcon } from '../common/ScalableIcon'
 
