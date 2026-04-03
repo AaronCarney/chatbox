@@ -1,8 +1,8 @@
 # API Reference
 
-Base URL: `http://localhost:3001` (dev) / `https://<railway-app>.railway.app` (prod)
+Base URL: `http://localhost:3001` (dev) / `https://chatbox-production-d06b.up.railway.app` (prod)
 
-All protected routes require a valid Clerk session cookie.
+Protected routes require a valid Clerk session cookie. OAuth and Spotify routes are public (OAuth uses state-based CSRF; Spotify routes require session_id for token lookup).
 
 ---
 
@@ -20,39 +20,42 @@ Stream an AI response. Returns a Server-Sent Events stream.
 {
   "messages": [
     { "role": "user", "content": "Let's play chess" },
-    { "role": "assistant", "content": "Sure! I'll open a chess board for you." }
+    { "role": "assistant", "content": "Sure! I'll open a chess board for you.", "tool_calls": [{ "type": "function", "function": { "name": "launch_app", "arguments": "{\"app_id\":\"chess\"}" } }] }
   ],
-  "tools": ["chess_move", "chess_get_board"],
   "activeAppId": "chess",
   "toolResult": {
-    "toolName": "chess_move",
-    "result": { "fen": "rnbqkbnr/pp1ppppp/..." }
+    "name": "get_board_state",
+    "data": { "fen": "rnbqkbnr/pp1ppppp/..." },
+    "tool_call_id": "call_abc123"
   }
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `messages` | array | yes | Conversation history (`role` + `content`) |
-| `tools` | string[] | no | Tool names available in the current app context |
+| `messages` | array | yes | Conversation history in OpenAI format (`role` + `content`, optional `tool_calls`) |
 | `activeAppId` | string | no | ID of the currently active iframe app |
-| `toolResult` | object | no | Result of a previous tool invocation to inject |
+| `toolResult` | object | no | Result of a previous tool invocation (`name`, `data`, `tool_call_id`) |
 
 **Response:** `text/event-stream`
 
-Each event is a JSON-stringified OpenAI streaming chunk:
+Custom SSE protocol (not raw OpenAI chunks):
 
 ```
-data: {"id":"chatcmpl-...","choices":[{"delta":{"content":"Hello"},...}]}
-
+data: {"type":"token","content":"Hello! "}
+data: {"type":"token","content":"Let's play chess."}
+data: {"type":"tool_call_start","toolCall":{"id":"call_abc","name":"launch_app","arguments":"{\"app_id\":\"chess\"}"}}
 data: [DONE]
 ```
 
-On error:
+| Event type | Description |
+|---|---|
+| `token` | Streaming text content fragment |
+| `tool_call_start` | Assembled tool call (emitted after stream completes) |
+| `error` | Error message: `{"type":"error","message":"..."}` |
+| `[DONE]` | Stream complete |
 
-```
-data: {"type":"error","message":"..."}
-```
+**Safety pipeline:** Input capped at 8KB. PII stripped from all roles. Tool results wrapped in random-salt delimiters. max_tokens: 1024. Progressive history trimming to fit token budget.
 
 ---
 
@@ -108,7 +111,7 @@ Returns a single app by ID.
 
 Initiates Spotify OAuth flow. Redirects to Spotify authorization page.
 
-**Auth:** Required
+**Auth:** Not required (opens in popup window without Clerk session; state param provides CSRF)
 
 **Query params:**
 
@@ -122,9 +125,9 @@ Initiates Spotify OAuth flow. Redirects to Spotify authorization page.
 
 Spotify redirects here after user approval. Exchanges authorization code for tokens and closes the popup.
 
-**Auth:** Required
+**Auth:** Not required
 
-**Query params:** `code`, `state`, `session_id` (set by Spotify + passed through)
+**Query params:** `code`, `state` (set by Spotify redirect)
 
 **Response:** HTML `<script>window.close()</script>` on success; `400`/`500` JSON on error.
 
@@ -132,7 +135,7 @@ Spotify redirects here after user approval. Exchanges authorization code for tok
 
 Checks whether a session has a valid Spotify token.
 
-**Auth:** Required
+**Auth:** Not required
 
 **Query params:**
 
@@ -154,14 +157,14 @@ Checks whether a session has a valid Spotify token.
 
 Search for tracks.
 
-**Auth:** Required
+**Auth:** Not required (uses session_id for Spotify token lookup)
 
 **Query params:**
 
 | Param | Required | Description |
 |---|---|---|
 | `q` | yes | Search query string |
-| `session_id` | yes | Authenticated session identifier |
+| `session_id` | yes | Session identifier for Spotify token lookup |
 
 **Response:**
 
@@ -173,7 +176,7 @@ Search for tracks.
 
 Create a new Spotify playlist.
 
-**Auth:** Required
+**Auth:** Not required (uses session_id)
 
 **Request body:**
 
@@ -191,7 +194,7 @@ Create a new Spotify playlist.
 
 Add tracks to an existing playlist.
 
-**Auth:** Required
+**Auth:** Not required (uses session_id)
 
 **Path params:** `id` — Spotify playlist ID
 
@@ -211,7 +214,7 @@ Add tracks to an existing playlist.
 
 Get track recommendations seeded by track IDs.
 
-**Auth:** Required
+**Auth:** Not required (uses session_id)
 
 **Query params:**
 
