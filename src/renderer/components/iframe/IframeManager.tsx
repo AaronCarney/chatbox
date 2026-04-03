@@ -19,7 +19,7 @@ export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onR
     }
   }, [onRef])
 
-  const clampedHeight = Math.min(600, Math.max(200, height || 400))
+  const clampedHeight = Math.min(800, Math.max(200, height || 400))
 
   return (
     <iframe

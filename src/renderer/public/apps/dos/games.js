@@ -17,6 +17,5 @@ window.DOS_GAMES = [
   { id: 'snakes-ladders',name: 'Snakes & Ladders',      category: 'board',       cover: 'png' },
   { id: 'shuffle',       name: 'Shuffle',               category: 'puzzle',      cover: 'png' },
   { id: 'soh-lo',        name: 'Soh-Lo Puzzles',        category: 'puzzle',      cover: 'jpg' },
-  { id: 'smb3',          name: 'Super Mario Bros 3',    category: 'action',      cover: 'png' },
   { id: 'bible',         name: 'Bible Adventures',      category: 'educational', cover: 'jpg' },
 ];

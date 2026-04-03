@@ -178,6 +178,10 @@ export function ChatBridgeApp() {
           const appId = args.appId ?? args.app_id ?? id
           const app = availableApps.find((a) => a.id === appId)
           launchApp(appId, app?.iframe_url ?? '')
+          // Set taller default height for DOS arcade (50% viewport)
+          if (appId === 'dos') {
+            setIframeHeights(prev => new Map(prev).set(appId, Math.round(window.innerHeight * 0.5)))
+          }
           setTimeout(() => {
             const iframe = iframeRefs.current.get(appId)
             if (iframe && brokerRef.current) {

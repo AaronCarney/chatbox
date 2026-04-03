@@ -40,24 +40,21 @@ oauthRouter.get('/oauth/spotify/authorize', (req: Request, res: Response) => {
 
 // GET /api/oauth/spotify/callback
 oauthRouter.get('/oauth/spotify/callback', async (req: Request, res: Response) => {
-  const { code, state, session_id } = req.query;
+  const { code, state } = req.query;
 
   if (!state || typeof state !== 'string') {
     res.status(400).json({ error: 'Missing state parameter' });
     return;
   }
 
-  // Validate state
+  // Validate state and recover session_id
   const stateData = tokenStore.get(state);
   if (!stateData) {
     res.status(400).json({ error: 'Invalid state' });
     return;
   }
 
-  if (typeof session_id !== 'string' || session_id !== stateData.sessionId) {
-    res.status(400).json({ error: 'Session ID mismatch' });
-    return;
-  }
+  const session_id = stateData.sessionId;
 
   try {
     const clientId = process.env.SPOTIFY_CLIENT_ID;
