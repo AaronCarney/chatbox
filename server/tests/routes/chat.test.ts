@@ -51,6 +51,7 @@ vi.mock('../../src/middleware/safety.js', () => ({
 
 vi.mock('../../src/services/context.js', () => ({
   trimHistory: vi.fn((msgs: unknown[]) => msgs),
+  summarizeAppResult: vi.fn((data: unknown) => JSON.stringify(data)),
 }));
 
 describe('POST /api/chat', () => {
@@ -349,5 +350,25 @@ describe('POST /api/chat', () => {
     expect(usageCall[0]).toHaveProperty('promptTokens');
     expect(usageCall[0]).toHaveProperty('completionTokens');
     expect(usageCall[0]).toHaveProperty('estimatedCost');
+  });
+
+  it('calls summarizeAppResult to compress old tool results', async () => {
+    const { summarizeAppResult } = await import('../../src/services/context.js');
+    const { streamChat } = await import('../../src/services/llm.js');
+    vi.mocked(streamChat).mockImplementation(async function* () {
+      yield { choices: [{ delta: { content: 'ok' } }] };
+    });
+
+    const msgs = [
+      { role: 'user', content: 'play chess' },
+      { role: 'tool', content: '{"fen":"start"}', tool_call_id: 'tc-1' },
+      { role: 'user', content: 'what now?' },
+    ];
+
+    await request(app)
+      .post('/api/chat')
+      .send({ messages: msgs });
+
+    expect(summarizeAppResult).toHaveBeenCalled();
   });
 });

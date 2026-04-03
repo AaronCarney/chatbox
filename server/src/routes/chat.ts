@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { buildMessages, streamChat } from '../services/llm.js';
 import { buildToolsForTurn } from '../services/tools.js';
 import { validateToolResult, wrapWithDelimiters } from '../middleware/safety.js';
-import { trimHistory } from '../services/context.js';
+import { trimHistory, summarizeAppResult } from '../services/context.js';
 import { stripPii } from '../middleware/pii.js';
 import { getApps } from '../db/client.js';
 import { logger } from '../lib/logger.js';
@@ -71,16 +71,32 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       });
     }
 
+    // Summarize old tool results based on recency
+    const withSummaries = sanitizedMessages.map((msg: any, idx: number) => {
+      if (msg.role === 'tool' && msg.content) {
+        const turnsSince = sanitizedMessages.length - 1 - idx;
+        try {
+          const data = JSON.parse(msg.content);
+          const summary = summarizeAppResult(data, Math.floor(turnsSince / 2));
+          if (summary === '') return null;
+          return { ...msg, content: summary };
+        } catch {
+          return msg;
+        }
+      }
+      return msg;
+    }).filter(Boolean);
+
     // Token budget check: 8K input cap with progressive trimming
     const estimateTokens = (msgs: any[]) =>
       Math.ceil(JSON.stringify(msgs).length / 4);
 
     let maxVerbatim = 20;
-    let tokenEstimate = estimateTokens(sanitizedMessages);
+    let tokenEstimate = estimateTokens(withSummaries);
 
     while (tokenEstimate > 8000 && maxVerbatim > 5) {
       maxVerbatim -= 5;
-      const testTrimmed = trimHistory(sanitizedMessages, maxVerbatim);
+      const testTrimmed = trimHistory(withSummaries, maxVerbatim);
       tokenEstimate = estimateTokens(testTrimmed);
     }
 
@@ -91,7 +107,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     log.info({ tokenEstimate, maxVerbatim }, 'token budget check');
 
     // Trim history and build LLM messages
-    const trimmed = trimHistory(sanitizedMessages, maxVerbatim);
+    const trimmed = trimHistory(withSummaries, maxVerbatim);
     const llmMessages = buildMessages(trimmed, tools, apps, activeAppId);
 
     // Stream from LLM
