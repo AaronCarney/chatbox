@@ -70,5 +70,37 @@ export function useChat() {
     appendMessage({ role: 'tool', content, tool_call_id: toolCallId })
   }, [appendMessage])
 
-  return { messages, isStreaming, streamingText, sendMessage, addToolResult }
+  const continueAfterToolCalls = useCallback(
+    async (opts?: { activeAppId?: string | null; authToken?: string | null }) => {
+      setIsStreaming(true)
+      setStreamingText('')
+      let accumulated = ''
+      const toolCalls: any[] = []
+
+      try {
+        for await (const chunk of streamChat(messagesRef.current, opts)) {
+          if (chunk?.type === 'token' && chunk.content) {
+            accumulated += chunk.content
+            setStreamingText(accumulated)
+          } else if (chunk?.type === 'tool_call_start' && chunk.toolCall) {
+            toolCalls.push(chunk.toolCall)
+          }
+        }
+
+        if (toolCalls.length > 0) {
+          return { type: 'tool_calls' as const, toolCalls }
+        }
+
+        if (accumulated) {
+          appendMessage({ role: 'assistant', content: accumulated })
+        }
+      } finally {
+        setIsStreaming(false)
+        setStreamingText('')
+      }
+    },
+    [appendMessage]
+  )
+
+  return { messages, isStreaming, streamingText, sendMessage, addToolResult, continueAfterToolCalls }
 }

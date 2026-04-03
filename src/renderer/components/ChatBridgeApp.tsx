@@ -30,7 +30,7 @@ interface CompletedActivity {
 
 export function ChatBridgeApp() {
   const { getToken } = useAuth()
-  const { messages, isStreaming, streamingText, sendMessage, addToolResult } = useChat()
+  const { messages, isStreaming, streamingText, sendMessage, addToolResult, continueAfterToolCalls } = useChat()
   const { apps, iframeRefs, launchApp, getActiveApp } = useIframeApps()
   const { state: toolState, currentToolCall, handleToolCall, resolveToolCall } = useToolExecution()
 
@@ -265,7 +265,23 @@ export function ChatBridgeApp() {
         }
       }
     }
-  }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp])
+
+    // Send tool results back to LLM for follow-up response
+    const followUp = await continueAfterToolCalls({
+      activeAppId: activeApp?.id ?? null,
+      authToken: token,
+    })
+
+    // Handle chained tool calls (rare but possible)
+    if (followUp?.type === 'tool_calls') {
+      for (const tc of followUp.toolCalls) {
+        const name: string = tc.name ?? ''
+        const id: string = tc.id ?? ''
+        addToolResult(id, JSON.stringify({ error: 'Chained tool calls not yet supported: ' + name }))
+      }
+      await continueAfterToolCalls({ activeAppId: activeApp?.id ?? null, authToken: token })
+    }
+  }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp, continueAfterToolCalls])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
