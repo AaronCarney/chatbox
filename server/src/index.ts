@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { join, dirname } from 'path';
@@ -45,10 +46,15 @@ app.use('/api', spotifyRouter);
 
 const PORT = process.env.PORT || 3001;
 
+let server: any;
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  server = app.listen(PORT, () => {
     logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'server started');
+  });
+  server.on('error', (err: Error) => {
+    logger.error({ err }, 'server error');
+    process.exit(1);
   });
 }
 
-export { app };
+export { app, server };

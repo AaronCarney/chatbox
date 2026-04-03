@@ -7,7 +7,7 @@ export const chatLimiter = rateLimit({
   keyGenerator: (req) => {
     return (req as any).auth?.userId || req.ip || 'unknown';
   },
-  validate: { ipKeyGenerator: false },
+  validate: { keyGeneratorIpFallback: false },
   standardHeaders: true,
   legacyHeaders: false,
 });
