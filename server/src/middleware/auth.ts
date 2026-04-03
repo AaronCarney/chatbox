@@ -14,6 +14,8 @@ if (hasClerkKeys) {
   clerkAuth = clerkMiddleware();
   requireSession = requireAuth();
   logger.info('Clerk auth middleware enabled');
+} else if (process.env.NODE_ENV === 'production') {
+  throw new Error('CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY are required in production');
 } else {
   logger.warn('Clerk keys not configured — auth disabled (dev mode)');
 }

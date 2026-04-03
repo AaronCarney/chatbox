@@ -120,9 +120,11 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     // Stream from LLM
     const stream = streamChat(llmMessages, tools, 'auto');
 
-    let toolCallCount = 0;
     let totalContent = '';
     let lastUsage: any = null;
+    // Accumulate tool call deltas by index (OpenAI streams arguments in fragments)
+    const toolCallBuffers: Record<number, { id: string; name: string; arguments: string }> = {};
+
     for await (const chunk of stream) {
       const choice = chunk?.choices?.[0];
       if (!choice) continue;
@@ -135,28 +137,31 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       }
 
       if (delta?.tool_calls?.length) {
-        toolCallCount++;
-        if (toolCallCount > 10) {
-          log.error({ toolCallCount, max: 10, requestId }, 'tool call limit exceeded');
-          res.write(`data: ${JSON.stringify({ type: 'error', message: 'Tool call limit exceeded (max 10 per turn)' })}\n\n`);
-          break;
+        for (const tcDelta of delta.tool_calls) {
+          const idx = tcDelta.index ?? 0;
+          if (!toolCallBuffers[idx]) {
+            toolCallBuffers[idx] = { id: '', name: '', arguments: '' };
+          }
+          if (tcDelta.id) toolCallBuffers[idx].id = tcDelta.id;
+          if (tcDelta.function?.name) toolCallBuffers[idx].name += tcDelta.function.name;
+          if (tcDelta.function?.arguments) toolCallBuffers[idx].arguments += tcDelta.function.arguments;
         }
-        const tc = delta.tool_calls[0];
-        log.info({ toolCallId: tc.id, toolName: tc.function?.name }, 'tool call detected');
-        res.write(
-          `data: ${JSON.stringify({
-            type: 'tool_call_start',
-            toolCall: {
-              id: tc.id,
-              name: tc.function?.name,
-              arguments: tc.function?.arguments,
-            },
-          })}\n\n`
-        );
       }
 
       if (chunk.usage) {
         lastUsage = chunk.usage;
+      }
+    }
+
+    // Emit assembled tool calls after stream completes
+    const assembledToolCalls = Object.values(toolCallBuffers);
+    if (assembledToolCalls.length > 10) {
+      log.error({ count: assembledToolCalls.length, max: 10 }, 'tool call limit exceeded');
+      res.write(`data: ${JSON.stringify({ type: 'error', message: 'Tool call limit exceeded (max 10 per turn)' })}\n\n`);
+    } else {
+      for (const tc of assembledToolCalls) {
+        log.info({ toolCallId: tc.id, toolName: tc.name }, 'tool call assembled');
+        res.write(`data: ${JSON.stringify({ type: 'tool_call_start', toolCall: tc })}\n\n`);
       }
     }
 

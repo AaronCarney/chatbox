@@ -224,7 +224,6 @@ export function ChatBridgeApp() {
 
         case 'search_tracks':
         case 'get_recommendations': {
-          const activeApp = getActiveApp()
           if (activeApp) {
             const result = await dispatchToolToApp(id, name, parseArgs(), activeApp)
             addToolResult(id, JSON.stringify(result))
@@ -254,7 +253,6 @@ export function ChatBridgeApp() {
         }
 
         default: {
-          const activeApp = getActiveApp()
           if (activeApp) {
             const result = await dispatchToolToApp(id, name, parseArgs(), activeApp)
             addToolResult(id, JSON.stringify(result))

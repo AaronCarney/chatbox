@@ -18,9 +18,16 @@ export function trimHistory(messages: Message[], maxVerbatim = 20): Message[] {
     return messages;
   }
 
-  // Extract older messages for summary
-  const olderMessages = messages.slice(0, messages.length - maxVerbatim);
-  const lastMessages = messages.slice(-maxVerbatim);
+  // Find a safe cut point: must start on a 'user' message boundary
+  // Never cut between assistant(tool_calls) and its tool result(s)
+  let cutIdx = messages.length - maxVerbatim;
+  while (cutIdx < messages.length && messages[cutIdx]?.role !== 'user') {
+    cutIdx++;
+  }
+  if (cutIdx >= messages.length) cutIdx = messages.length - maxVerbatim; // fallback
+
+  const olderMessages = messages.slice(0, cutIdx);
+  const lastMessages = messages.slice(cutIdx);
 
   // Extract key content from older messages (max 3, first 50 chars each)
   const summaryItems = olderMessages

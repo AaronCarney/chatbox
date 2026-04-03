@@ -18,7 +18,10 @@ const app = express();
 
 app.use(requestLogger());
 app.use(securityHeaders);
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+}));
 app.use(express.json());
 app.use('/api', generalLimiter);
 app.use('/api/chat', chatLimiter);

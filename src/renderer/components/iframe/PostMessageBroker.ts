@@ -61,10 +61,12 @@ export class PostMessageBroker {
       payload,
     };
 
+    // Use same-origin target (apps served from /apps/ on same domain)
+    const targetOrigin = window.location.origin;
     if (port) {
-      iframe.contentWindow?.postMessage(envelope, '*', [port]);
+      iframe.contentWindow?.postMessage(envelope, targetOrigin, [port]);
     } else {
-      iframe.contentWindow?.postMessage(envelope, '*');
+      iframe.contentWindow?.postMessage(envelope, targetOrigin);
     }
   }
 
