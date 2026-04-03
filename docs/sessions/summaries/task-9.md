@@ -1,54 +1,60 @@
-# Task 9: Chat SSE Route - Summary
+# Task 9: Cost Tracking Middleware (I8)
 
 ## Status: COMPLETE
 
 ## Overview
-Implemented the chat SSE streaming endpoint for real-time message streaming to clients.
+Implemented LLM usage logging with token counts and cost estimation. Every chat request now logs token consumption and estimated costs for analysis.
 
 ## Implementation Details
 
-### Test First (TDD)
-- Created `server/tests/routes/chat.test.ts` with 6 test cases:
-  - Verifies HTTP 200 response with text/event-stream content type
-  - Validates SSE headers (Cache-Control: no-cache, Connection: keep-alive)
-  - Confirms response body contains `data:` lines
-  - Tests integration with buildMessages and streamChat
-  - Verifies [DONE] marker at stream end
-  - Handles missing tools parameter gracefully
-- Mocked llm.ts services (buildMessages, streamChat) for isolation
+### Test-Driven Approach
+Added failing test that verifies:
+- `logger.child().info()` called with message type `'llm usage'`
+- Logged object contains: `promptTokens`, `completionTokens`, `estimatedCost`
+- Optional: `model`, `requestId`, `duration` context fields
+
+Test validates cost tracking is captured after stream completion, not during streaming.
 
 ### Implementation
-- **server/src/routes/chat.ts**: New Express router for `/chat` POST endpoint
-  - Reads `{ messages, tools }` from request body (tools defaults to empty array)
-  - Sets proper SSE headers (text/event-stream, no-cache, keep-alive)
-  - Calls buildMessages to prepend system prompt
-  - Iterates through streamChat async generator
-  - Writes each chunk as SSE formatted line: `data: ${JSON.stringify(chunk)}\n\n`
-  - Sends [DONE] marker to signal stream completion
-  - Catches errors and sends error SSE event
-  - Exports chatRouter for use in main app
+**server/src/routes/chat.ts**: Enhanced streaming loop with usage tracking
+- Initialize tracking variables before streaming loop:
+  - `totalContent`: accumulate delta.content from each chunk
+  - `lastUsage`: capture usage data from stream chunks
+- During streaming: accumulate content and capture usage when present
+- After streaming completes:
+  - Calculate `promptTokens`: prefer `chunk.usage.prompt_tokens`, fallback to `estimateTokens(llmMessages)`
+  - Calculate `completionTokens`: prefer `chunk.usage.completion_tokens`, fallback to `Math.ceil(totalContent.length / 4)`
+  - Calculate `estimatedCost`: `(promptTokens * 2.5 + completionTokens * 10) / 1_000_000` (USD, GPT-4o pricing)
+  - Log all metrics with request context
 
-- **server/src/index.ts**: Updated to register chatRouter
-  - Added import for chatRouter
-  - Added `app.use('/api', chatRouter)` to mount at `/api/chat`
+**server/tests/routes/chat.test.ts**: Added 1 new test
+- Validates usage logging captures all required fields
+- Mocks logger to verify `info()` call with correct message type
+
+## Cost Estimation Logic
+- **Prompt tokens**: Use actual count from LLM stream if available, else estimate based on message JSON length
+- **Completion tokens**: Use actual count from LLM stream if available, else estimate ~4 chars per token
+- **Pricing**: Based on GPT-4o (input $2.50/1M, output $10/1M)
+- **Result**: Accurate costs when LLM provides usage, reasonable estimates as fallback
 
 ## Test Results
-All 27 tests passing (5 test files):
-- services/session.test.ts: 8 tests
-- db/client.test.ts: 3 tests
-- services/llm.test.ts: 9 tests
-- health.test.ts: 1 test
-- routes/chat.test.ts: 6 tests (new)
+All 95 tests passing (11 test files):
+- 16 tests in routes/chat.test.ts (including new usage logging test)
+- No regressions in existing functionality
+- TDD: test → fail → implement → pass
 
-## Key Files
-- `/home/context/projects/chatbridge-wt-t9/server/src/routes/chat.ts` (NEW)
-- `/home/context/projects/chatbridge-wt-t9/server/tests/routes/chat.test.ts` (NEW)
-- `/home/context/projects/chatbridge-wt-t9/server/src/index.ts` (MODIFIED)
+## Key Files Modified
+- `/home/context/projects/chatbridge/server/src/routes/chat.ts`
+- `/home/context/projects/chatbridge/server/tests/routes/chat.test.ts`
 
 ## Git Commit
 ```
-commit 375ca1b
-feat: chat SSE streaming route
+feat: cost tracking middleware logs token usage per request (I8)
+commit d9a3b4d
 ```
 
-Branch: task-9-chat-sse
+## Deliverable
+✅ Token usage logged per chat completion for cost analysis
+✅ Handles both actual usage from LLM and estimation fallback
+✅ Clean structured logging with request context
+✅ Cost calculation using GPT-4o pricing model
