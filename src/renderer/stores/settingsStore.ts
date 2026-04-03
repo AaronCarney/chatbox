@@ -2,7 +2,7 @@
 /** biome-ignore-all lint/suspicious/noFallthroughSwitchClause: migrate */
 
 import * as defaults from '@shared/defaults'
-import { type ProviderSettings, type Settings, SettingsSchema } from '@shared/types'
+import { type Settings, SettingsSchema } from '@shared/types'
 import type { DocumentParserConfig } from '@shared/types/settings'
 import deepmerge from 'deepmerge'
 import type { WritableDraft } from 'immer'
@@ -12,7 +12,6 @@ import { immer } from 'zustand/middleware/immer'
 import { getLogger } from '@/lib/utils'
 import platform from '@/platform'
 import storage from '@/storage'
-import { mergeProviderSettings, type ProviderSettingsUpdate } from './providerSettings'
 
 const log = getLogger('settings-store')
 
@@ -114,12 +113,6 @@ export const initSettingsStore = async () => {
   if (!_initSettingsStorePromise) {
     _initSettingsStorePromise = new Promise<Settings>((resolve) => {
       const unsub = settingsStore.persist.onFinishHydration((val) => {
-        const providers = val?.providers
-        const providersCount =
-          providers && typeof providers === 'object' && !Array.isArray(providers) ? Object.keys(providers).length : 0
-        if (providersCount === 0) {
-          log.info(`[CONFIG_DEBUG] onFinishHydration: providersCount=0`)
-        }
         unsub()
         resolve(val)
       })
@@ -151,21 +144,3 @@ export function useSettingsStore<U>(selector: Parameters<typeof useStore<typeof 
 
 export const useLanguage = () => useSettingsStore((state) => state.language)
 export const useTheme = () => useSettingsStore((state) => state.theme)
-export const useMcpSettings = () => useSettingsStore((state) => state.mcp)
-
-export const useProviderSettings = (providerId: string) => {
-  const providers = useSettingsStore((state) => state.providers)
-
-  const providerSettings = providers?.[providerId]
-
-  const setProviderSettings = (val: ProviderSettingsUpdate) => {
-    settingsStore.setState((currentSettings) => {
-      return mergeProviderSettings(currentSettings, providerId, val)
-    })
-  }
-
-  return {
-    providerSettings,
-    setProviderSettings,
-  }
-}

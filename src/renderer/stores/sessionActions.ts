@@ -14,32 +14,13 @@ export {
 export { exportSessionChat } from './session/export'
 // Re-export fork operations from session/forks.ts
 export { createNewFork, deleteFork, expandFork, switchFork } from './session/forks'
-// Re-export generation operations from session/generation.ts
-export {
-  createLoadingPictures,
-  generate,
-  generateMore,
-  generateMoreInNewFork,
-  genMessageContext,
-  getMessageThreadContext,
-  getSessionWebBrowsing,
-  regenerateInNewFork,
-} from './session/generation'
 // Re-export message operations from session/messages.ts
 export {
   insertMessage,
   insertMessageAfter,
   modifyMessage,
   removeMessage,
-  submitNewUserMessage,
 } from './session/messages'
-// Re-export naming operations from session/naming.ts
-export {
-  modifyNameAndThreadName,
-  modifyThreadName,
-  scheduleGenerateNameAndThreadName,
-  scheduleGenerateThreadName,
-} from './session/naming'
 // Re-export thread operations from session/threads.ts
 export {
   compressAndCreateThread,
