@@ -13,12 +13,41 @@ interface ToolCallResult {
   toolCalls: any[]
 }
 
+interface StreamOpts {
+  tools?: any[]
+  activeAppId?: string | null
+  authToken?: string | null
+}
+
+/** Shared logic: stream from server, collect text + tool calls */
+function processStream(
+  stream: AsyncGenerator<any>,
+  onToken: (text: string) => void
+): Promise<{ accumulated: string; toolCalls: any[] }> {
+  return (async () => {
+    let accumulated = ''
+    const toolCalls: any[] = []
+
+    for await (const chunk of stream) {
+      if (chunk?.type === 'token' && chunk.content) {
+        accumulated += chunk.content
+        onToken(accumulated)
+      } else if (chunk?.type === 'tool_call_start' && chunk.toolCall) {
+        toolCalls.push(chunk.toolCall)
+      } else if (chunk?.type === 'error') {
+        throw new Error(chunk.message || 'Server error')
+      }
+    }
+    return { accumulated, toolCalls }
+  })()
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
-  // Ref tracks current messages to avoid stale closures in async callbacks
   const messagesRef = useRef<Message[]>([])
 
   const appendMessage = useCallback((msg: Message): Message[] => {
@@ -29,35 +58,32 @@ export function useChat() {
   }, [])
 
   const sendMessage = useCallback(
-    async (
-      content: string,
-      opts?: { tools?: any[]; activeAppId?: string | null; authToken?: string | null }
-    ): Promise<ToolCallResult | void> => {
+    async (content: string, opts?: StreamOpts): Promise<ToolCallResult | void> => {
+      setError(null)
       const currentMessages = appendMessage({ role: 'user', content })
-
       setIsStreaming(true)
       setStreamingText('')
 
-      let accumulated = ''
-      const toolCalls: any[] = []
-
       try {
-        for await (const chunk of streamChat(currentMessages, opts)) {
-          if (chunk?.type === 'token' && chunk.content) {
-            accumulated += chunk.content
-            setStreamingText(accumulated)
-          } else if (chunk?.type === 'tool_call_start' && chunk.toolCall) {
-            toolCalls.push(chunk.toolCall)
-          }
-        }
+        const { accumulated, toolCalls } = await processStream(
+          streamChat(currentMessages, opts),
+          (text) => setStreamingText(text)
+        )
 
         if (toolCalls.length > 0) {
+          // Add assistant message with tool_calls to history (OpenAI requires this
+          // before tool result messages in the next request)
+          appendMessage({ role: 'assistant', content: accumulated || '', tool_calls: toolCalls })
           return { type: 'tool_calls', toolCalls }
         }
 
         if (accumulated) {
           appendMessage({ role: 'assistant', content: accumulated })
         }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        setError(msg)
+        appendMessage({ role: 'assistant', content: `Sorry, something went wrong: ${msg}` })
       } finally {
         setIsStreaming(false)
         setStreamingText('')
@@ -71,29 +97,29 @@ export function useChat() {
   }, [appendMessage])
 
   const continueAfterToolCalls = useCallback(
-    async (opts?: { activeAppId?: string | null; authToken?: string | null }) => {
+    async (opts?: StreamOpts): Promise<ToolCallResult | void> => {
+      setError(null)
       setIsStreaming(true)
       setStreamingText('')
-      let accumulated = ''
-      const toolCalls: any[] = []
 
       try {
-        for await (const chunk of streamChat(messagesRef.current, opts)) {
-          if (chunk?.type === 'token' && chunk.content) {
-            accumulated += chunk.content
-            setStreamingText(accumulated)
-          } else if (chunk?.type === 'tool_call_start' && chunk.toolCall) {
-            toolCalls.push(chunk.toolCall)
-          }
-        }
+        const { accumulated, toolCalls } = await processStream(
+          streamChat(messagesRef.current, opts),
+          (text) => setStreamingText(text)
+        )
 
         if (toolCalls.length > 0) {
-          return { type: 'tool_calls' as const, toolCalls }
+          appendMessage({ role: 'assistant', content: accumulated || '', tool_calls: toolCalls })
+          return { type: 'tool_calls', toolCalls }
         }
 
         if (accumulated) {
           appendMessage({ role: 'assistant', content: accumulated })
         }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        setError(msg)
+        appendMessage({ role: 'assistant', content: `Sorry, something went wrong: ${msg}` })
       } finally {
         setIsStreaming(false)
         setStreamingText('')
@@ -102,5 +128,5 @@ export function useChat() {
     [appendMessage]
   )
 
-  return { messages, isStreaming, streamingText, sendMessage, addToolResult, continueAfterToolCalls }
+  return { messages, isStreaming, streamingText, error, sendMessage, addToolResult, continueAfterToolCalls }
 }

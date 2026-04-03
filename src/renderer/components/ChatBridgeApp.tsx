@@ -152,11 +152,11 @@ export function ChatBridgeApp() {
     if (!trimmed || isStreaming) return
     setInput('')
 
+    try {
     const token = await getToken().catch(() => null)
     const activeApp = getActiveApp()
 
     const result = await sendMessage(trimmed, {
-      tools: [],
       activeAppId: activeApp?.id ?? null,
       authToken: token,
     })
@@ -275,11 +275,14 @@ export function ChatBridgeApp() {
     // Handle chained tool calls (rare but possible)
     if (followUp?.type === 'tool_calls') {
       for (const tc of followUp.toolCalls) {
-        const name: string = tc.name ?? ''
         const id: string = tc.id ?? ''
+        const name: string = tc.name ?? ''
         addToolResult(id, JSON.stringify({ error: 'Chained tool calls not yet supported: ' + name }))
       }
       await continueAfterToolCalls({ activeAppId: activeApp?.id ?? null, authToken: token })
+    }
+    } catch (err) {
+      console.error('[ChatBridge] handleSend error:', err)
     }
   }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp, continueAfterToolCalls])
 
