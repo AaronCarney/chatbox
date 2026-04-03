@@ -1,62 +1,73 @@
-# Task 5: PostgreSQL Schema + DB Client
+# Task 5: PII Strip All Roles + Address Pattern
 
 ## What Was Built
 
-Created a typed PostgreSQL database layer for chatbridge server. Schema supports an app registry and chat message storage with proper indexing. Database client provides query helpers with parameterized queries to prevent SQL injection.
+Extended PII stripping to apply to all message roles (not just user messages) and added missing street address pattern detection.
 
-## Files Created
+## Files Modified
 
-- `server/src/db/schema.sql` — PostgreSQL schema with two main tables:
-  - `apps` — registry of approved third-party applications (id, name, description, iframe_url, tools, auth config, trust/safety, sandbox, status, created_at)
-  - `chat_messages` — chat history and context storage (id, session_pseudonym, role, content, tool_call_id, app_id, data_classification, created_at)
-  - Index on `chat_messages(session_pseudonym)` for efficient session lookups
+- `server/src/middleware/pii.ts` — Added address regex pattern
+  - Detects street addresses: `\d+ [word]+ (Street|St|Avenue|Ave|...)`
+  - Replaces with `[REDACTED_ADDRESS]`
+  - Placed after phone patterns to avoid interference
 
-- `server/src/db/client.ts` — typed database client
-  - Exports Pool from pg library initialized with DATABASE_URL env var
-  - `query(text, params)` helper for parameterized queries
-  - `getApps()` — returns all approved applications
-  - `getAppById(id)` — returns single app or null
+- `server/src/routes/chat.ts` — Extended PII stripping to all roles
+  - Changed from `msg.role === 'user'` filter to `typeof msg.content === 'string'` check
+  - Now strips PII from assistant messages that echo user PII
+  - Consistent with spec: "Assistant messages echoing user PII pass through [stripped]"
 
-- `server/tests/db/client.test.ts` — comprehensive test suite (3 tests)
-  - Tests mock pg.Pool to avoid needing live database
-  - Verifies `getApps()` executes correct SQL with status filter
-  - Verifies `getAppById()` uses parameterized query with id parameter
-  - Verifies null return on missing app
+- `server/tests/middleware/pii.test.ts` — Added address pattern tests
+  - "strips street addresses" — covers Street, Ave, Boulevard formats
+  - "handles multiple address formats" — verifies non-greedy matching doesn't consume "and"
 
-- `server/tests/__mocks__/pg.ts` — pg module mock for vitest
-  - Exports mockQuery function for test assertions
-  - Pool returns mock with query method
-
-- `server/package.json` — updated
-  - Added `pg` as production dependency
-  - Added `@types/pg` as dev dependency
+- `server/tests/routes/chat.test.ts` — Added all-roles stripping test
+  - "strips PII from all message roles, not just user"
+  - Verifies stripPii called ≥2 times with both user and assistant content
 
 ## Test Results
 
-All 4 tests passing (3 new db tests + 1 pre-existing health test):
+All 91 tests passing:
 ```
-Test Files  2 passed (2)
-Tests  4 passed (4)
+Test Files  11 passed (11)
+Tests  91 passed (91)
 ```
 
 ## TDD Process
 
-1. Wrote failing test first (verified file-not-found error)
-2. Installed pg and @types/pg dependencies
-3. Created schema.sql with proper table definitions and indexing
-4. Implemented client.ts with query helpers and specific functions
-5. Fixed mocking strategy using vitest __mocks__ pattern
-6. All tests passed
-7. Committed: `feat: PostgreSQL schema + DB client`
+1. ✓ Write failing test for address pattern (2 failing tests added)
+2. ✓ Run test, verify FAIL (expected failures confirmed)
+3. ✓ Add address regex to pii.ts (non-greedy match to handle "and")
+4. ✓ Run test, verify address tests PASS
+5. ✓ Write failing test for all-roles stripping (1 failing test added)
+6. ✓ Run test, verify FAIL (stripPii called only 1 time instead of 2+)
+7. ✓ Update chat.ts sanitization logic (content type check vs role check)
+8. ✓ Run all tests, verify PASS (91/91)
+9. ✓ Commit: `feat: PII strip all message roles + address pattern (I1, I2)`
 
 ## Key Decisions
 
-- Used parameterized queries ($1 syntax) throughout for security
-- schema.sql uses standard PostgreSQL types (TEXT, SERIAL, TIMESTAMPTZ, JSONB, TEXT[])
-- Apps filtered by status='approved' at query level for simplicity
-- Index added on session_pseudonym for chat message lookups (common query path)
-- vitest mocks via __mocks__/pg.ts pattern avoids hoisting issues with vi.mock()
+- Address regex uses non-greedy match (`[\w][\w\s]*?`) to prevent "and" from being treated as part of street name
+- Covers common abbreviations: St, Ave, Rd, Blvd, Dr, Ln, Ct (not just full words)
+- All-roles stripping based on content type check (simpler, handles all message types)
+- Preserves existing sanitization order: SSN → email → phone → address
+
+## Implementation Details
+
+Address pattern:
+```typescript
+/\b\d+\s+[\w][\w\s]*?(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct)\b/gi
+```
+
+All-roles map:
+```typescript
+const sanitizedMessages = messages.map((msg) => {
+  if (typeof msg.content === 'string') {
+    return { ...msg, content: stripPii(msg.content) };
+  }
+  return msg;
+});
+```
 
 ## No Deviations
 
-Task completed exactly as specified.
+Task completed exactly as specified. Both I1 (address pattern) and I2 (all-roles stripping) implemented with full test coverage.
