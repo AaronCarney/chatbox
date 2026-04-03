@@ -26,15 +26,15 @@ If YES to 4: **modify it** (strip dangerous parts, keep what's needed).
 ### T1: Replace Sidebar with ChatBridge sidebar
 **Why:** Current sidebar links to Settings (API keys), Image Creator (direct model calls), Copilots (custom system prompts), session routes (direct LLM). All bypass safety pipeline.
 **What:**
-- Replace `src/renderer/Sidebar.tsx` with a minimal ChatBridge sidebar:
-  - ChatBridge branding (not Chatbox logo)
-  - Clerk `<UserButton />` (keep — our auth)
-  - "New Chat" button (navigates to `/`, which is ChatBridgeApp)
-  - Remove: Settings, Image Creator, Copilots, Help, About, Dev Tools, Session List, Task toggle
-- Keep the `SwipeableDrawer` shell and responsive behavior (small screen support)
-- Keep the sidebar collapse button
+- Rewrite `src/renderer/Sidebar.tsx` — keep the `SwipeableDrawer` shell, responsive behavior, and collapse button. Replace contents with:
+  - ChatBridge branding (not Chatbox logo/link)
+  - Clerk `<UserButton />` (our auth)
+  - "New Chat" button → navigates to `/`
+  - Remove everything else: Settings, Image Creator, Copilots, Help, About, Dev Tools, Session List, Task toggle, version check
+- Match existing Mantine/MUI patterns from the current sidebar (don't introduce new UI libraries)
+- Remove imports for deleted features (SessionList, TaskSessionList, navigateToSettings, etc.) but don't delete those files yet — Wave 3 handles that
 **Files:** `src/renderer/Sidebar.tsx`
-**Verify:** App loads, sidebar shows only branding + UserButton + New Chat. No links to Settings/Copilots/Image Creator.
+**Verify:** App loads, sidebar shows only branding + UserButton + New Chat. No navigation to any Chatbox feature. No broken imports.
 
 ---
 
@@ -43,37 +43,37 @@ If YES to 4: **modify it** (strip dangerous parts, keep what's needed).
 ### T2: Remove unsafe routes, redirect stragglers to `/`
 **Why:** Students can type `/session/xxx`, `/image-creator`, `/settings`, `/copilots` directly in the URL bar. Each leads to unsafe code.
 **What:**
-- Delete these route files/directories entirely:
-  - `src/renderer/routes/session/` (direct Chatbox LLM sessions)
-  - `src/renderer/routes/image-creator/` (direct model.paint())
-  - `src/renderer/routes/settings/` (API key config, provider settings)
-  - `src/renderer/routes/copilots/` (custom system prompts + direct LLM)
-  - `src/renderer/routes/task/` (Chatbox task mode)
-  - `src/renderer/routes/dev/` (dev tools)
-  - `src/renderer/routes/about.tsx` (Chatbox about page)
-  - `src/renderer/routes/guide/` (Chatbox onboarding — tries to configure providers)
-- Keep `src/renderer/routes/index.tsx` (ChatBridgeApp) and `src/renderer/routes/__root.tsx`
-- TanStack Router auto-generates routes from the file system, so deleting files removes routes
-- Add a catch-all route that redirects unknown paths to `/`
-**Files:** All listed route dirs/files, plus add `src/renderer/routes/$catchAll.tsx`
-**Verify:** Navigate to `/settings`, `/session/test`, `/copilots`, `/image-creator` — all redirect to `/`. Only `/` works as ChatBridgeApp.
+- Delete every route file/directory under `src/renderer/routes/` EXCEPT `__root.tsx` and `index.tsx`. This includes but is not limited to: `session/`, `image-creator/`, `settings/`, `copilots/`, `task/`, `dev/`, `about.tsx`, `guide/`.
+- If any new route files exist at execution time that weren't listed above, apply the decision framework — if a student can reach it and it bypasses the pipeline, delete it.
+- Add a catch-all route (`src/renderer/routes/$catchAll.tsx`) that redirects to `/`
+- After deletion, regenerate the TanStack Router route tree: run `pnpm exec tsr generate` or delete `routeTree.gen.ts` and let the dev server regenerate it. Verify the generated file only contains `/` and the catch-all.
+- Check `useShortcut` hook and any keyboard shortcut bindings that might navigate to deleted routes — disable those.
+**Files:** `src/renderer/routes/` (most files), `routeTree.gen.ts` (regenerate)
+**Verify:** Navigate to `/settings`, `/session/test`, `/copilots`, `/image-creator` — all redirect to `/`. Only `/` works as ChatBridgeApp. `routeTree.gen.ts` contains no references to deleted routes.
 
 ### T3: Clean `__root.tsx` — remove unsafe initializations and navigation
-**Why:** Root layout initializes settings store (loads API keys), prefetches model registry, auto-navigates to `/guide` (provider setup), auto-navigates to last session (direct LLM). Also renders `<SettingsModal />`, `<Sidebar />` (old one), and other Chatbox dialogs.
+**Why:** Root layout initializes settings store (loads API keys), prefetches model registry, auto-navigates to `/guide` (provider setup), auto-navigates to last session (direct LLM). Also renders `<SettingsModal />` and other Chatbox dialogs.
 **What:**
-- Remove `prefetchModelRegistry()` call
-- Remove `settingActions.needEditSetting()` check and guide navigation
-- Remove auto-navigate to last session (`/session/${sid}`)
-- Remove `premiumActions.useAutoValidate()` (license checking for Chatbox)
-- Remove `<SettingsModal />` render
-- Remove `<RemoteDialogWindow />` (fetches remote Chatbox config)
-- Remove `<SearchDialog />` (Chatbox search)
-- Remove `<BackgroundImageOverlay />` (depends on session store)
-- Keep: `<ClerkProvider>`, `<SignedIn>`/`<SignedOut>`, `<MantineProvider>`, `<Sidebar />` (will be new sidebar from T1), `<Outlet />`, `<Toasts />`
-- Keep: theme initialization, spellCheck, language/i18n, `<ErrorBoundary>`
-- Remove imports for deleted modules (settingActions, premiumActions, model-registry, etc.)
+- **Guiding principle:** `__root.tsx` should do exactly 3 things: (1) provide theming/i18n, (2) render the auth gate (SignedIn/SignedOut), (3) render Sidebar + Outlet. Everything else is Chatbox machinery that needs to go.
+- Remove from the `useEffect` initialization block:
+  - `prefetchModelRegistry()` — loads LLM model catalog
+  - `settingActions.needEditSetting()` check + guide navigation — pushes to provider setup
+  - Auto-navigate to last session (`/session/${sid}` block) — routes to direct LLM
+  - `premiumActions.useAutoValidate()` — Chatbox license system
+  - `remote.getRemoteConfig()` — fetches Chatbox remote config
+  - Onboarding store init (if it only serves the guide flow)
+- Remove from the JSX render:
+  - `<BackgroundImageOverlay />` — depends on session store + image storage
+  - `<SettingsModal />` — API key configuration modal
+  - `<RemoteDialogWindow />` — Chatbox remote dialogs
+  - `<SearchDialog />` — Chatbox search
+  - `<PictureDialog />` — image preview for image creator
+- Keep in JSX: `<ClerkProvider>`, `<SignedIn>`/`<SignedOut>`/`<SignIn>`, `<MantineProvider>`, `<Sidebar />` (new from T1), `<Outlet />`, `<Toasts />`, `<ErrorBoundary>`, `<CssBaseline>`
+- Keep in logic: theme (`useTheme`, `setColorScheme`), spellCheck, language/i18n, `useAppTheme`, `useI18nEffect`
+- After removing, clean up all now-unused imports. If an import points to a file that will be deleted in Wave 3, just remove the import — don't worry about the file existing yet.
+- **Watch for:** `initSettingsStore()` — the settings store handles theme/language which we keep. If removing it breaks theming, keep the call but verify it doesn't load provider API keys into memory. Trace what `initSettingsStore` actually does.
 **Files:** `src/renderer/routes/__root.tsx`
-**Verify:** App loads without errors. No console warnings about missing routes/stores. No auto-navigation to guide/session.
+**Verify:** App loads. Theme works. Auth gate works. No console errors. No auto-navigation. No modals appear.
 
 ---
 
@@ -82,40 +82,45 @@ If YES to 4: **modify it** (strip dangerous parts, keep what's needed).
 ### T4: Delete direct model-call packages
 **Why:** These make direct LLM API calls from the browser, bypassing the server pipeline entirely.
 **What:**
-- Delete `src/renderer/packages/model-calls/` (stream-text, generate-image, preprocess)
-- Delete `src/renderer/packages/web-search/` (tavily, bing, duckduckgo, etc.)
-- Delete `src/renderer/packages/context-management/` (summary-generator, compaction — uses model.chat())
-- Delete `src/renderer/packages/model-registry/` (model factory/capabilities)
-- Delete `src/renderer/packages/model-setting-utils/` (provider config utilities)
-- Fix any import errors in remaining code by removing references
-**Files:** Listed package directories
-**Verify:** `npx tsc --noEmit` passes (or only has pre-existing errors). No references to deleted packages in remaining code.
+- Delete these package directories: `model-calls/`, `web-search/`, `context-management/`, `model-registry/`, `model-setting-utils/` (all under `src/renderer/packages/`)
+- Also scan for any OTHER packages under `src/renderer/packages/` that import from deleted packages or make direct API calls to LLM providers. Apply the decision framework.
+- After deletion, grep the remaining codebase for imports from deleted paths. For each broken import:
+  - If the importing file is itself slated for deletion (Wave 3 stores/components), leave it — it'll be cleaned up there
+  - If the importing file is one we keep (e.g. `settingsStore.ts`), remove just the import and any code that depends on it
+- **Cascading imports are the main risk here.** Don't just delete directories and hope — trace each broken reference.
+**Files:** Listed package directories + any files that import from them
+**Verify:** `grep -r "from.*model-calls\|from.*web-search\|from.*context-management\|from.*model-registry\|from.*model-setting-utils" src/renderer/` returns 0 results (excluding deleted files). Build doesn't fail on missing imports.
 
-### T5: Delete unsafe stores
+### T5: Delete unsafe stores and clean surviving ones
 **Why:** These stores hold API keys, make direct LLM calls, or manage Chatbox sessions that bypass the pipeline.
 **What:**
-- Delete `src/renderer/stores/session/generation.ts` (direct streamText calls)
-- Delete `src/renderer/stores/session/naming.ts` (generates titles via direct model.chat())
-- Delete `src/renderer/stores/imageGenerationActions.ts` (direct image generation)
-- Delete `src/renderer/stores/premiumActions.ts` (Chatbox license management)
-- Delete `src/renderer/stores/providerSettings.ts` (provider API key management)
-- Review `src/renderer/stores/settingsStore.ts` — keep i18n, theme, spellCheck. Remove provider-related fields/initialization.
-- Review `src/renderer/stores/chatStore.ts` — determine if ChatBridgeApp depends on it. If not, mark for removal.
-- Fix broken imports in remaining code
-**Files:** Listed store files
-**Verify:** `npx tsc --noEmit` passes. ChatBridgeApp renders and functions.
+- Delete these store files: `session/generation.ts`, `session/naming.ts`, `imageGenerationActions.ts`, `premiumActions.ts`, `providerSettings.ts` (all under `src/renderer/stores/`)
+- Also scan the `stores/` directory for any other files that import from deleted packages (model-calls, web-search, etc.) or make direct LLM calls. Delete those too.
+- **`settingsStore.ts` — modify, don't delete.** This store handles theme, language, spellCheck which `__root.tsx` needs. But it also contains provider settings (API keys, model configs). The implementer should:
+  - Trace what `initSettingsStore()` loads from persistent storage
+  - If provider fields are interleaved with theme/language fields in the same store, keep the store but remove provider-related state fields and any functions that read/write API keys
+  - If provider settings are in a separate section/slice, just remove that section
+  - Don't guess — read the file and understand its structure before editing
+- **`chatStore.ts` — check dependency.** ChatBridgeApp does NOT import it directly, but `__root.tsx` might. If `__root.tsx` references it only for the session navigation (which T3 removes), it can go. If it's needed for something we keep, leave it.
+- **`sessionActions.ts` — likely needs cleanup.** It re-exports from `session/generation.ts`. Once generation.ts is deleted, sessionActions will break. Either delete it or remove the re-exports.
+- Fix cascading import errors in remaining code.
+**Files:** Listed store files + any additional unsafe stores found during scan
+**Verify:** `grep -r "apiKey\|apikey\|api_key" src/renderer/stores/` returns 0 results (except Clerk-related). ChatBridgeApp renders.
 
 ### T6: Remove unused Chatbox components and modals
-**Why:** Dead code that references deleted stores/packages will cause build errors and confusion.
+**Why:** Dead code that references deleted stores/packages will cause build errors and confusion. Also reduces attack surface — less code = fewer places for vulnerabilities to hide.
 **What:**
-- Delete `src/renderer/components/InputBox/` (Chatbox input box — ChatBridgeApp has its own)
-- Delete `src/renderer/components/chat/MessageList.tsx` and related (Chatbox message rendering — ChatBridgeApp has its own)
-- Delete `src/renderer/modals/Settings.tsx` and `src/renderer/modals/ModelEdit.tsx`
-- Delete `src/renderer/components/session/SessionList.tsx`, `SessionItem.tsx`, `TaskSessionList.tsx`
-- Delete `src/renderer/pages/PictureDialog.tsx`, `RemoteDialogWindow.tsx`, `SearchDialog.tsx`
-- **Be conservative**: only delete files that have zero imports from remaining code. Use `grep` to verify before each deletion.
-**Files:** Listed component files (verify each)
-**Verify:** Build succeeds. No broken imports.
+- **Method:** Don't delete from a hardcoded list. Instead, work from build errors: after T4+T5 delete stores/packages, run `npx tsc --noEmit` (or `pnpm vite build`). Every file that fails to compile because it imports something deleted is a candidate for deletion — but only if ChatBridgeApp and `__root.tsx` don't import it.
+- **Likely deletions** (verify each with grep before deleting):
+  - `components/InputBox/` — Chatbox input (ChatBridgeApp has its own inline input)
+  - `components/chat/MessageList.tsx` — Chatbox message rendering
+  - `modals/Settings.tsx`, `modals/ModelEdit.tsx` — settings/model modals
+  - `components/session/SessionList.tsx`, `SessionItem.tsx`, `TaskSessionList.tsx` — session list UI
+  - `pages/PictureDialog.tsx`, `RemoteDialogWindow.tsx`, `SearchDialog.tsx` — Chatbox dialogs
+- **Be conservative:** for each file, run `grep -r "from.*<filename>" src/renderer/` against the remaining code. If something we keep still imports it, don't delete it — stub it or fix the import instead.
+- **Don't chase perfection.** The goal is removing safety risks and fixing build errors, not achieving zero dead code. If a harmless utility file has no imports from remaining code but also isn't hurting anything, leave it.
+**Files:** Determined at execution time by build errors
+**Verify:** `pnpm vite build` succeeds. No import errors.
 
 ---
 
@@ -124,24 +129,25 @@ If YES to 4: **modify it** (strip dangerous parts, keep what's needed).
 ### T7: Full build + runtime verification
 **Why:** After 6 tasks of deletion and modification, we need to confirm nothing is broken and no unsafe paths remain.
 **What:**
-- Run `npx tsc --noEmit` — fix any type errors from deleted dependencies
-- Run `pnpm test` — verify existing tests still pass (expect some test files for deleted features to fail — delete those test files)
-- Run `pnpm vite build` — verify production build succeeds
-- Grep entire `src/renderer/` for dangerous patterns:
-  - `model.chat(` — should have 0 results
-  - `model.paint(` — should have 0 results
-  - `streamText(` — should have 0 results (except test mocks)
-  - `apiKey` in stores — should have 0 results outside of Clerk config
-  - Direct fetch to LLM providers (`api.openai.com`, `api.anthropic.com`) — should have 0 results
-- Verify the only `fetch` calls in the app go to `VITE_API_URL` (the secured backend)
-- Deploy to Vercel, test live:
-  - `/` loads ChatBridgeApp
-  - `/settings` redirects to `/`
-  - `/session/test` redirects to `/`
-  - Ask "let's play chess" — chess loads in iframe
-  - Ask "what should I do?" — chatbot responds via safe pipeline
-**Files:** Various (grep verification, test cleanup)
-**Verify:** All checks above pass. Zero direct LLM call paths in frontend.
+- **Build checks:**
+  - `npx tsc --noEmit` — fix any remaining type errors
+  - `pnpm test` — delete test files for deleted features, verify remaining tests pass
+  - `pnpm vite build` — production build must succeed
+- **Security grep sweep:** Search `src/renderer/` for patterns that indicate unsafe LLM access. Use these as signals, not a rigid checklist — the implementer may find additional patterns:
+  - Direct model calls: `model.chat(`, `model.paint(`, `streamText(`, `generateText(`
+  - API key exposure: `apiKey` in stores (Clerk keys are OK, LLM provider keys are not)
+  - Direct provider URLs: `api.openai.com`, `api.anthropic.com`, `api.tavily.com`
+  - Any `fetch(` call that doesn't go to `VITE_API_URL` or a CDN — trace each one
+- **Runtime checks** (deploy to Vercel first):
+  - `/` loads ChatBridgeApp with chat interface
+  - Any other URL redirects to `/`
+  - Sidebar shows only branding, user button, new chat
+  - Browser devtools Network tab shows no calls to LLM provider APIs
+  - Ask "let's play chess" — chess loads
+  - Ask "what should I do?" — chatbot responds (proves pipeline works end-to-end)
+- **Test cleanup:** Delete test files that import from deleted modules. Don't rewrite tests for deleted features — just remove them.
+**Files:** Various
+**Verify:** Build passes, security grep clean, runtime checks pass.
 
 ### T8: Commit + push + update progress
 **What:**
