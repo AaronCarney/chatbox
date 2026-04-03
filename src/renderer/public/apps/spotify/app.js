@@ -1,6 +1,8 @@
 (function () {
   'use strict';
 
+  // API URL: use parent origin's env or fall back to production Railway URL
+  var API_BASE = 'https://chatbox-production-d06b.up.railway.app';
   var sessionId = 'demo-session';
 
   function getSessionId() {
@@ -9,7 +11,7 @@
 
   function checkAuth() {
     var sessionId = getSessionId();
-    fetch('/api/oauth/spotify/token?session_id=' + sessionId)
+    fetch(API_BASE + '/api/oauth/spotify/token?session_id=' + sessionId)
       .then(function (res) { return res.json(); })
       .then(function (data) {
         if (data.authenticated) {
@@ -61,10 +63,10 @@
     var btn = document.getElementById('connect-btn');
     if (!btn) return;
     btn.addEventListener('click', function () {
-      var url = '/api/oauth/spotify/authorize?session_id=' + getSessionId();
+      var url = API_BASE + '/api/oauth/spotify/authorize?session_id=' + getSessionId();
       var popup = window.open(url, 'spotify-auth', 'width=500,height=700');
       var interval = setInterval(function () {
-        fetch('/api/oauth/spotify/token?session_id=' + getSessionId())
+        fetch(API_BASE + '/api/oauth/spotify/token?session_id=' + getSessionId())
           .then(function (res) { return res.json(); })
           .then(function (data) {
             if (data.authenticated) {
@@ -82,7 +84,7 @@
     var sessionId = getSessionId();
 
     if (payload.name === 'search_tracks') {
-      fetch('/api/spotify/search?q=' + encodeURIComponent(payload.arguments.query) + '&session_id=' + sessionId)
+      fetch(API_BASE + '/api/spotify/search?q=' + encodeURIComponent(payload.arguments.query) + '&session_id=' + sessionId)
         .then(function (res) { return res.json(); })
         .then(function (data) {
           var tracks = data.tracks || [];
@@ -97,7 +99,7 @@
         });
 
     } else if (payload.name === 'create_playlist') {
-      fetch('/api/spotify/playlist', {
+      fetch(API_BASE + '/api/spotify/playlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: payload.arguments.name, session_id: sessionId })
@@ -111,7 +113,7 @@
         });
 
     } else if (payload.name === 'add_to_playlist') {
-      fetch('/api/spotify/playlist/' + payload.arguments.playlist_id + '/tracks', {
+      fetch(API_BASE + '/api/spotify/playlist/' + payload.arguments.playlist_id + '/tracks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ track_ids: payload.arguments.track_ids, session_id: sessionId })
@@ -127,7 +129,7 @@
 
     } else if (payload.name === 'get_recommendations') {
       var seeds = payload.arguments.seed_track_ids.join(',');
-      fetch('/api/spotify/recommendations?seeds=' + encodeURIComponent(seeds) + '&session_id=' + sessionId)
+      fetch(API_BASE + '/api/spotify/recommendations?seeds=' + encodeURIComponent(seeds) + '&session_id=' + sessionId)
         .then(function (res) { return res.json(); })
         .then(function (data) {
           var tracks = data.tracks || [];

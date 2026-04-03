@@ -1,6 +1,6 @@
 /* DOS Arcade — ChatBridge bridge + launcher logic */
 (function () {
-  var GAMES = window.DOS_GAMES;
+  var GAMES = window.DOS_GAMES || [];
   var catalog = document.getElementById('catalog');
   var emulator = document.getElementById('emulator');
   var grid = document.getElementById('game-grid');
@@ -10,6 +10,7 @@
 
   var currentGame = null;
   var dosInstance = null;
+  var jsDosLoaded = false;
 
   // --- Catalog rendering (safe DOM construction, no innerHTML) ---
   function renderCatalog() {
@@ -34,6 +35,29 @@
     });
   }
 
+  // --- Load js-dos on demand ---
+  function loadJsDos(callback) {
+    if (jsDosLoaded) return callback();
+
+    // Load CSS
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://v8.js-dos.com/latest/js-dos.css';
+    document.head.appendChild(link);
+
+    // Load JS
+    var script = document.createElement('script');
+    script.src = 'https://v8.js-dos.com/latest/js-dos.js';
+    script.onload = function () {
+      jsDosLoaded = true;
+      callback();
+    };
+    script.onerror = function () {
+      callback(new Error('Failed to load js-dos emulator'));
+    };
+    document.body.appendChild(script);
+  }
+
   // --- Game launch ---
   function launchGame(gameId) {
     var game = GAMES.find(function (g) { return g.id === gameId; });
@@ -48,16 +72,34 @@
     while (dosContainer.firstChild) dosContainer.removeChild(dosContainer.firstChild);
     dosInstance = null;
 
-    try {
-      dosInstance = Dos(dosContainer, {
-        url: 'games/' + game.id + '.zip',
-      });
-    } catch (e) {
-      var errMsg = document.createElement('p');
-      errMsg.style.cssText = 'color:#ff4444;padding:20px;';
-      errMsg.textContent = 'Failed to load: ' + e.message;
-      dosContainer.appendChild(errMsg);
-    }
+    // Show loading state
+    var loading = document.createElement('p');
+    loading.className = 'loading';
+    loading.textContent = 'Loading emulator...';
+    dosContainer.appendChild(loading);
+
+    loadJsDos(function (err) {
+      while (dosContainer.firstChild) dosContainer.removeChild(dosContainer.firstChild);
+
+      if (err) {
+        var errMsg = document.createElement('p');
+        errMsg.style.cssText = 'color:#ff4444;padding:20px;';
+        errMsg.textContent = err.message;
+        dosContainer.appendChild(errMsg);
+        return;
+      }
+
+      try {
+        dosInstance = Dos(dosContainer, {
+          url: 'games/' + game.id + '.zip',
+        });
+      } catch (e) {
+        var errMsg2 = document.createElement('p');
+        errMsg2.style.cssText = 'color:#ff4444;padding:20px;';
+        errMsg2.textContent = 'Failed to load: ' + e.message;
+        dosContainer.appendChild(errMsg2);
+      }
+    });
   }
 
   // --- Back to catalog ---

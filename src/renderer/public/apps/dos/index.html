@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DOS Games</title>
-  <link rel="stylesheet" href="https://v8.js-dos.com/latest/js-dos.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #e0e0e0; height: 100vh; overflow: hidden; }
@@ -28,6 +27,7 @@
     #emu-toolbar button:hover { background: #00ff41; color: #1a1a2e; }
     #emu-toolbar .title { flex: 1; color: #00ff41; font-size: 13px; }
     #dos-container { flex: 1; background: #000; }
+    .loading { color: #00ff41; padding: 20px; text-align: center; }
   </style>
 </head>
 <body>
@@ -44,8 +44,7 @@
     <div id="dos-container"></div>
   </div>
 
-  <script src="https://v8.js-dos.com/latest/js-dos.js"></script>
-  <script src="/sdk/chatbridge-sdk.js"></script>
+  <!-- Load catalog scripts first (no CDN dependency) -->
   <script src="games.js"></script>
   <script src="bridge.js"></script>
 </body>

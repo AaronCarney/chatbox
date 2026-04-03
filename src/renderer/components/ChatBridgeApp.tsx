@@ -306,6 +306,7 @@ export function ChatBridgeApp() {
             iframeUrl={app.iframeUrl}
             isActive={app.status === 'active'}
             height={iframeHeights.get(app.id)}
+            sandbox={app.id === 'spotify' ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox' : undefined}
             onRef={(el) => {
               if (el) {
                 iframeRefs.current.set(app.id, el)
@@ -320,6 +321,9 @@ export function ChatBridgeApp() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {messages.map((msg, i) => {
           if (msg.role === 'tool') return null
+          // Hide assistant messages that are just tool_calls with no visible text
+          if (msg.role === 'assistant' && !msg.content && msg.tool_calls) return null
+          if (msg.role === 'assistant' && !msg.content) return null
           const isUser = msg.role === 'user'
           return (
             <div key={i} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>

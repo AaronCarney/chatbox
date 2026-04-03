@@ -6,10 +6,11 @@ export interface IframeManagerProps {
   iframeUrl: string
   isActive: boolean
   height?: number
+  sandbox?: string
   onRef?: (el: HTMLIFrameElement | null) => void
 }
 
-export function IframeManager({ appId, iframeUrl, isActive, height, onRef }: IframeManagerProps) {
+export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onRef }: IframeManagerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
@@ -24,11 +25,11 @@ export function IframeManager({ appId, iframeUrl, isActive, height, onRef }: Ifr
     <iframe
       ref={iframeRef}
       src={iframeUrl}
-      sandbox="allow-scripts"
+      sandbox={sandbox || 'allow-scripts'}
       {...{ credentialless: '' } as any}
       allow=""
       referrerPolicy="no-referrer"
-      loading="lazy"
+      loading="eager"
       title={appId}
       style={{
         width: '100%',
