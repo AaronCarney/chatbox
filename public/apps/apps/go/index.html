@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="toolbar">
+    <button id="btn-new-game">New Game</button>
+    <button id="btn-undo" disabled>Undo</button>
+    <button id="btn-pass">Pass</button>
+    <select id="size-select">
+      <option value="9" selected>9×9</option>
+      <option value="13">13×13</option>
+      <option value="19">19×19</option>
+    </select>
+  </div>
+  <canvas id="board" width="400" height="400"></canvas>
+  <div id="status" class="status"></div>
+  <div id="captures"></div>
+
+  <script src="/sdk/chatbridge-sdk.js"></script>
+  <script src="engine.js"></script>
+  <script src="board.js"></script>
+  <script src="bridge.js"></script>
+</body>
+</html>
