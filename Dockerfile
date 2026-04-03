@@ -4,8 +4,9 @@ WORKDIR /app
 
 RUN npm install -g pnpm
 
-# Copy workspace config + lockfile + server package.json
+# Copy workspace config + lockfile + patches + server package.json
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/ patches/
 COPY server/package.json server/package.json
 
 # Install only server deps via pnpm workspace filter
