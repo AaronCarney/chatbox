@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spotify</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="auth-prompt" style="display:none">
+    <p>Connect your Spotify account to search tracks, build playlists, and get recommendations.</p>
+    <button id="connect-btn" class="connect-btn">Connect Spotify</button>
+  </div>
+
+  <div id="connected" style="display:none">
+    <section id="search-section">
+      <h3>Search Results</h3>
+      <div id="search-results"></div>
+    </section>
+    <section id="playlist-section">
+      <h3>Playlist</h3>
+      <div id="playlist"></div>
+    </section>
+  </div>
+
+  <script src="/sdk/chatbridge-sdk.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
