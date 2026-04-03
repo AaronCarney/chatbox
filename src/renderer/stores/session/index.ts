@@ -1,20 +1,11 @@
 /**
  * Session Module Public API
  *
- * This module provides all session-related operations for Chatbox.
- * Internal helpers (prefixed with _) are intentionally not exported.
- *
- * Public exports: 40 functions + types + state
- * - CRUD (8): Session lifecycle operations
- * - Messages (5): Message CRUD and user input handling
- * - Threads (9): Thread/history management
- * - Forks (5): Message branching operations
- * - Generation (8): AI generation orchestration
- * - Naming (4): Session/thread naming
- * - Export (1): Export functionality
+ * Provides session CRUD, messages, threads, forks, and export operations.
+ * Generation and naming removed (security hardening — no direct LLM calls).
  */
 
-// CRUD operations (8 functions)
+// CRUD operations
 export {
   clear,
   clearConversationList,
@@ -25,32 +16,13 @@ export {
   switchToIndex,
   switchToNext,
 } from './crud'
-// Export operations (1 function)
+// Export operations
 export { exportSessionChat } from './export'
-// Fork operations (5 functions)
+// Fork operations
 export { createNewFork, deleteFork, expandFork, findMessageLocation, switchFork } from './forks'
-// Generation operations (8 functions)
-export {
-  createLoadingPictures,
-  generate,
-  generateMore,
-  generateMoreInNewFork,
-  genMessageContext,
-  getMessageThreadContext,
-  getSessionWebBrowsing,
-  regenerateInNewFork,
-} from './generation'
-// Message operations (5 functions)
-export { insertMessage, insertMessageAfter, modifyMessage, removeMessage, submitNewUserMessage } from './messages'
-
-// Naming operations (4 functions)
-export {
-  modifyNameAndThreadName,
-  modifyThreadName,
-  scheduleGenerateNameAndThreadName,
-  scheduleGenerateThreadName,
-} from './naming'
-// Thread operations (9 functions)
+// Message operations
+export { insertMessage, insertMessageAfter, modifyMessage, removeMessage } from './messages'
+// Thread operations
 export {
   compressAndCreateThread,
   editThread,
