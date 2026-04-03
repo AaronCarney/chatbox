@@ -33,3 +33,13 @@ export {
   startNewThread,
   switchThread,
 } from './session/threads'
+
+// No-op stubs: LLM generation functions removed during security hardening
+// These were in session/generation.ts and session/naming.ts (direct LLM calls)
+export const generateMore = (..._args: unknown[]) => {}
+export const regenerateInNewFork = (..._args: unknown[]) => {}
+export const generateMoreInNewFork = (..._args: unknown[]) => {}
+export const submitNewUserMessage = (..._args: unknown[]) => {}
+export const scheduleGenerateNameAndThreadName = (..._args: unknown[]) => {}
+export const scheduleGenerateThreadName = (..._args: unknown[]) => {}
+export const getMessageThreadContext = async (..._args: unknown[]) => []
