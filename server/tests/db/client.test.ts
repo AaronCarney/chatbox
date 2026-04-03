@@ -3,7 +3,7 @@ import { mockQuery } from '../__mocks__/pg.js';
 
 vi.mock('pg', () => import('../__mocks__/pg.js'));
 
-import { getApps, getAppById } from '../../src/db/client.js';
+import { getApps, getAppById, saveMessage, getMessages } from '../../src/db/client.js';
 
 describe('db/client', () => {
   beforeEach(() => {
@@ -81,6 +81,32 @@ describe('db/client', () => {
         ['nonexistent']
       );
       expect(app).toBeNull();
+    });
+  });
+
+  describe('chat history', () => {
+    it('saveMessage is callable', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      await expect(saveMessage('pseudo-123', 'user', 'hello')).resolves.not.toThrow();
+    });
+
+    it('getMessages returns array', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            role: 'user',
+            content: 'hello',
+            tool_call_id: null,
+            app_id: null,
+            created_at: new Date().toISOString(),
+          },
+        ],
+      });
+
+      const result = await getMessages('pseudo-123');
+
+      expect(Array.isArray(result)).toBe(true);
     });
   });
 });

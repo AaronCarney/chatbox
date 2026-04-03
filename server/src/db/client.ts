@@ -34,4 +34,39 @@ export async function getAppById(id: string) {
   return result.rows[0] || null;
 }
 
+/**
+ * Save a message to the chat history.
+ */
+export async function saveMessage(
+  sessionPseudonym: string,
+  role: string,
+  content: string,
+  toolCallId?: string,
+  appId?: string
+) {
+  await pool.query(
+    `INSERT INTO chat_messages (session_pseudonym, role, content, tool_call_id, app_id, data_classification)
+     VALUES ($1, $2, $3, $4, $5, 'ephemeral_context')`,
+    [sessionPseudonym, role, content, toolCallId || null, appId || null]
+  );
+}
+
+/**
+ * Get chat messages for a session.
+ */
+export async function getMessages(
+  sessionPseudonym: string,
+  limit: number = 30
+) {
+  const result = await pool.query(
+    `SELECT role, content, tool_call_id, app_id, created_at
+     FROM chat_messages
+     WHERE session_pseudonym = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [sessionPseudonym, limit]
+  );
+  return result.rows.reverse();
+}
+
 export { pool };

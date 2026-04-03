@@ -1,8 +1,10 @@
 (function () {
   'use strict';
 
+  var sessionId = 'demo-session';
+
   function getSessionId() {
-    return 'demo-session';
+    return sessionId;
   }
 
   function checkAuth() {
@@ -141,7 +143,10 @@
     return { authenticated: document.getElementById('connected').style.display === 'block' };
   });
 
-  ChatBridge.on('launch', function () {
+  ChatBridge.on('launch', function (payload) {
+    if (payload && payload.sessionId) {
+      sessionId = payload.sessionId;
+    }
     checkAuth();
     ChatBridge.resize(400);
   });

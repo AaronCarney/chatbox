@@ -41,6 +41,7 @@ export function ChatBridgeApp() {
 
   const brokerRef = useRef<PostMessageBroker | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const sessionIdRef = useRef(crypto.randomUUID())
 
   useEffect(() => {
     fetchApps().then(setAvailableApps).catch(console.error)
@@ -159,10 +160,16 @@ export function ChatBridgeApp() {
 
       switch (name) {
         case 'launch_app': {
-          const args = parseArgs() as { appId?: string; url?: string }
-          const appId = args.appId ?? id
+          const args = parseArgs() as { appId?: string; url?: string; app_id?: string }
+          const appId = args.appId ?? args.app_id ?? id
           const app = availableApps.find((a) => a.id === appId)
           launchApp(appId, args.url ?? (app?.url as string) ?? '')
+          setTimeout(() => {
+            const iframe = iframeRefs.current.get(appId)
+            if (iframe && brokerRef.current) {
+              brokerRef.current.launchApp(iframe, appId, { sessionId: sessionIdRef.current })
+            }
+          }, 500)
           addToolResult(id, JSON.stringify({ launched: appId }))
           break
         }

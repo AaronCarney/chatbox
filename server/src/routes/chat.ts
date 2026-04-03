@@ -4,7 +4,7 @@ import { buildToolsForTurn } from '../services/tools.js';
 import { validateToolResult, wrapWithDelimiters } from '../middleware/safety.js';
 import { trimHistory, summarizeAppResult } from '../services/context.js';
 import { stripPii } from '../middleware/pii.js';
-import { getApps } from '../db/client.js';
+import { getApps, saveMessage } from '../db/client.js';
 import { logger } from '../lib/logger.js';
 import { sessionManager } from '../services/sessionSingleton.js';
 
@@ -175,6 +175,19 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 
     log.info({ duration: `${Date.now() - start}ms` }, 'chat stream complete');
     res.write('data: [DONE]\n\n');
+
+    // Fire-and-forget: persist chat history to database
+    if (pseudonym) {
+      const userMsg = sanitizedMessages[sanitizedMessages.length - 1];
+      if (userMsg) {
+        saveMessage(pseudonym, userMsg.role, userMsg.content, undefined, activeAppId).catch(() => {});
+      }
+      if (totalContent) {
+        saveMessage(pseudonym, 'assistant', totalContent, undefined, activeAppId).catch(() => {});
+      }
+      log.info({ messagesSaved: totalContent ? 2 : 1 }, 'chat history persisted');
+    }
+
     res.end();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

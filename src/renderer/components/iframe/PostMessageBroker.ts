@@ -85,7 +85,8 @@ export class PostMessageBroker {
 
   launchApp(
     iframe: HTMLIFrameElement,
-    appId: string
+    appId: string,
+    extra?: Record<string, any>
   ): Promise<MessageEvent> {
     return new Promise((resolve) => {
       const channel = new MessageChannel();
@@ -99,7 +100,7 @@ export class PostMessageBroker {
       port1.start();
 
       // Send launch message with port2
-      this.sendToIframe(iframe, 'task.launch', { appId }, port2);
+      this.sendToIframe(iframe, 'task.launch', { appId, ...extra }, port2);
     });
   }
 
