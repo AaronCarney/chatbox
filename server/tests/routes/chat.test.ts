@@ -322,4 +322,32 @@ describe('POST /api/chat', () => {
     const lastCall = calls[calls.length - 1];
     expect(lastCall[1]).toBeLessThan(20);
   });
+
+  it('logs LLM usage with token counts after stream', async () => {
+    const { logger } = await import('../../src/lib/logger.js');
+    const childInfoSpy = vi.fn();
+    vi.spyOn(logger, 'child').mockReturnValue({
+      info: childInfoSpy,
+      debug: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    } as any);
+
+    const { streamChat } = await import('../../src/services/llm.js');
+    vi.mocked(streamChat).mockImplementation(async function* () {
+      yield { choices: [{ delta: { content: 'Hello world' } }] };
+    });
+
+    await request(app)
+      .post('/api/chat')
+      .send({ messages: [{ role: 'user', content: 'hi' }] });
+
+    const usageCall = childInfoSpy.mock.calls.find(
+      (call: any[]) => call[1] === 'llm usage'
+    );
+    expect(usageCall).toBeDefined();
+    expect(usageCall[0]).toHaveProperty('promptTokens');
+    expect(usageCall[0]).toHaveProperty('completionTokens');
+    expect(usageCall[0]).toHaveProperty('estimatedCost');
+  });
 });

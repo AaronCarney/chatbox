@@ -98,6 +98,8 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     const stream = streamChat(llmMessages, tools, 'auto');
 
     let toolCallCount = 0;
+    let totalContent = '';
+    let lastUsage: any = null;
     for await (const chunk of stream) {
       const choice = chunk?.choices?.[0];
       if (!choice) continue;
@@ -105,6 +107,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       const delta = choice.delta;
 
       if (delta?.content) {
+        totalContent += delta.content;
         res.write(`data: ${JSON.stringify({ type: 'token', content: delta.content })}\n\n`);
       }
 
@@ -128,7 +131,24 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
           })}\n\n`
         );
       }
+
+      if (chunk.usage) {
+        lastUsage = chunk.usage;
+      }
     }
+
+    const promptTokens = lastUsage?.prompt_tokens || estimateTokens(llmMessages);
+    const completionTokens = lastUsage?.completion_tokens || Math.ceil(totalContent.length / 4);
+    const estimatedCost = (promptTokens * 2.5 + completionTokens * 10) / 1_000_000;
+
+    log.info({
+      requestId,
+      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      promptTokens,
+      completionTokens,
+      estimatedCost,
+      duration: `${Date.now() - start}ms`,
+    }, 'llm usage');
 
     log.info({ duration: `${Date.now() - start}ms` }, 'chat stream complete');
     res.write('data: [DONE]\n\n');
