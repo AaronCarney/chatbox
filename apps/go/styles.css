@@ -31,8 +31,13 @@ body {
   cursor: pointer;
 }
 
-.toolbar button:hover {
+.toolbar button:hover:not(:disabled) {
   background: #3a3a5e;
+}
+
+.toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .toolbar select {

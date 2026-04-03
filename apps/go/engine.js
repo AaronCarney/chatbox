@@ -54,6 +54,7 @@ window.GoEngine = (() => {
       passCount: 0, ko: null,
       lastMove: null, moveCount: 0,
       over: false,
+      history: [], // snapshots for undo
     };
   }
 
@@ -67,8 +68,19 @@ window.GoEngine = (() => {
 
     const opponent = game.turn === 1 ? 2 : 1;
 
-    // Snapshot board before mutation for suicide rollback
+    // Snapshot full state for undo + suicide rollback
     const snapshot = board.slice();
+    if (game.history) {
+      game.history.push({
+        board: snapshot,
+        turn: game.turn,
+        captures: { 1: game.captures[1], 2: game.captures[2] },
+        passCount: game.passCount,
+        ko: game.ko,
+        lastMove: game.lastMove,
+        moveCount: game.moveCount,
+      });
+    }
     board[pos] = game.turn;
 
     let capturedCount = 0;
@@ -90,6 +102,7 @@ window.GoEngine = (() => {
     if (ownGroup.liberties === 0) {
       // Restore entire board — captures may have happened before suicide detected
       for (let i = 0; i < board.length; i++) board[i] = snapshot[i];
+      if (game.history) game.history.pop(); // remove the snapshot we just pushed
       return { error: 'Suicide move' };
     }
 
@@ -154,6 +167,21 @@ window.GoEngine = (() => {
     };
   }
 
+  function undo(game) {
+    if (!game.history || game.history.length === 0) return false;
+    const prev = game.history.pop();
+    for (let i = 0; i < game.board.length; i++) game.board[i] = prev.board[i];
+    game.turn = prev.turn;
+    game.captures[1] = prev.captures[1];
+    game.captures[2] = prev.captures[2];
+    game.passCount = prev.passCount;
+    game.ko = prev.ko;
+    game.lastMove = prev.lastMove;
+    game.moveCount = prev.moveCount;
+    game.over = false;
+    return true;
+  }
+
   function serialize(game) {
     return {
       board: Array.from(game.board),
@@ -165,6 +193,9 @@ window.GoEngine = (() => {
       lastMove: game.lastMove,
       moveCount: game.moveCount,
       over: game.over,
+      history: (game.history || []).map(function(h) {
+        return { board: Array.from(h.board), turn: h.turn, captures: { 1: h.captures[1], 2: h.captures[2] }, passCount: h.passCount, ko: h.ko, lastMove: h.lastMove, moveCount: h.moveCount };
+      }),
     };
   }
 
@@ -180,8 +211,11 @@ window.GoEngine = (() => {
       lastMove: data.lastMove || null,
       moveCount: data.moveCount || 0,
       over: data.over || false,
+      history: (data.history || []).map(function(h) {
+        return { board: Array.from(h.board), turn: h.turn, captures: { 1: h.captures?.[1] || 0, 2: h.captures?.[2] || 0 }, passCount: h.passCount || 0, ko: h.ko || null, lastMove: h.lastMove || null, moveCount: h.moveCount || 0 };
+      }),
     };
   }
 
-  return { newGame, idx, neighbors, getGroup, placeStone, passTurn, simpleScore, boardToString, getState, serialize, deserialize };
+  return { newGame, idx, neighbors, getGroup, placeStone, passTurn, undo, simpleScore, boardToString, getState, serialize, deserialize };
 })();

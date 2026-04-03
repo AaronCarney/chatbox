@@ -1,7 +1,13 @@
 var engine = null;
+var humanMoveCount = 0;
 
 function saveGame() {
   if (engine) ChatBridge.saveState(GoEngine.serialize(engine));
+}
+
+function updateUndoState() {
+  var btn = document.getElementById('btn-undo');
+  if (btn) btn.disabled = humanMoveCount === 0;
 }
 
 function init(boardSize, savedState) {
@@ -9,18 +15,21 @@ function init(boardSize, savedState) {
     var restored = GoEngine.deserialize(savedState);
     if (restored) {
       engine = restored;
-      // Sync size selector with restored game
       var sel = document.getElementById('size-select');
       if (sel) sel.value = String(engine.size);
       GoBoard.render(engine);
       GoBoard.updateStatus(engine);
+      humanMoveCount = 0;
+      updateUndoState();
       ChatBridge.resize(500);
       return;
     }
   }
   engine = GoEngine.newGame(boardSize || 9);
+  humanMoveCount = 0;
   GoBoard.render(engine);
   GoBoard.updateStatus(engine);
+  updateUndoState();
   ChatBridge.resize(500);
 }
 
@@ -37,10 +46,15 @@ function setupCanvasListener() {
     if (!pos) return;
     var result = GoEngine.placeStone(engine, pos.x, pos.y);
     if (result.success) {
+      humanMoveCount++;
       GoBoard.render(engine);
       GoBoard.updateStatus(engine);
+      updateUndoState();
       saveGame();
       ChatBridge.sendState(GoEngine.getState(engine));
+    } else {
+      // Flash invalid move feedback
+      GoBoard.flashInvalid(engine, pos.x, pos.y);
     }
   });
 }
@@ -49,8 +63,10 @@ function setupCanvasListener() {
 document.getElementById('btn-new-game').addEventListener('click', function() {
   var size = engine ? engine.size : 9;
   engine = GoEngine.newGame(size);
+  humanMoveCount = 0;
   GoBoard.render(engine);
   GoBoard.updateStatus(engine);
+  updateUndoState();
   saveGame();
   ChatBridge.sendState(GoEngine.getState(engine));
 });
@@ -67,12 +83,26 @@ document.getElementById('btn-pass').addEventListener('click', function() {
   }
 });
 
-// Size selector
+document.getElementById('btn-undo').addEventListener('click', function() {
+  if (!engine || humanMoveCount === 0) return;
+  var ok = GoEngine.undo(engine);
+  if (ok) {
+    humanMoveCount--;
+    GoBoard.render(engine);
+    GoBoard.updateStatus(engine);
+    updateUndoState();
+    saveGame();
+    ChatBridge.sendState(GoEngine.getState(engine));
+  }
+});
+
 document.getElementById('size-select').addEventListener('change', function(e) {
   var size = parseInt(e.target.value, 10);
   engine = GoEngine.newGame(size);
+  humanMoveCount = 0;
   GoBoard.render(engine);
   GoBoard.updateStatus(engine);
+  updateUndoState();
   saveGame();
 });
 
@@ -94,6 +124,7 @@ ChatBridge.on('toolInvoke', function(payload, requestId) {
       if (result.error) {
         ChatBridge.respondToTool(requestId, { error: result.error });
       } else {
+        // LLM move — don't increment humanMoveCount
         GoBoard.render(engine);
         GoBoard.updateStatus(engine);
         saveGame();

@@ -3,29 +3,46 @@ window.GoBoard = {
     return canvas.width / (size + 1);
   },
 
-  render(game) {
-    const canvas = document.getElementById('board');
-    const ctx = canvas.getContext('2d');
-    const size = game.size;
+  // Column labels: A-T skipping I (Go convention)
+  _colLabel(x) {
+    var c = x < 8 ? x + 65 : x + 66; // skip 'I'
+    return String.fromCharCode(c);
+  },
 
-    // Responsive canvas sizing
-    const containerWidth = Math.min(400, window.innerWidth - 24);
+  render(game) {
+    var canvas = document.getElementById('board');
+    var ctx = canvas.getContext('2d');
+    var size = game.size;
+
+    var containerWidth = Math.min(400, window.innerWidth - 24);
     canvas.width = containerWidth;
     canvas.height = containerWidth;
     canvas.style.width = containerWidth + 'px';
     canvas.style.height = containerWidth + 'px';
 
-    const cellSize = this._cellSize(canvas, size);
+    var cellSize = this._cellSize(canvas, size);
 
     // Background
     ctx.fillStyle = '#dcb35c';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Coordinate labels
+    ctx.fillStyle = '#8b7340';
+    ctx.font = Math.max(9, cellSize * 0.35) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var i = 0; i < size; i++) {
+      // Column labels (top)
+      ctx.fillText(this._colLabel(i), (i + 1) * cellSize, cellSize * 0.35);
+      // Row labels (left) — Go uses 1-indexed from bottom
+      ctx.fillText(String(size - i), cellSize * 0.35, (i + 1) * cellSize);
+    }
+
     // Grid
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
-    for (let i = 0; i < size; i++) {
-      const offset = (i + 1) * cellSize;
+    for (var i = 0; i < size; i++) {
+      var offset = (i + 1) * cellSize;
       ctx.beginPath();
       ctx.moveTo(cellSize, offset);
       ctx.lineTo(size * cellSize, offset);
@@ -37,7 +54,7 @@ window.GoBoard = {
     }
 
     // Star points
-    const starPoints = size === 9
+    var starPoints = size === 9
       ? [[2, 2], [6, 2], [2, 6], [6, 6], [4, 4]]
       : size === 13
       ? [[3, 3], [9, 3], [3, 9], [9, 9], [6, 6]]
@@ -46,20 +63,21 @@ window.GoBoard = {
       : [];
 
     ctx.fillStyle = '#000';
-    for (const [sx, sy] of starPoints) {
+    for (var s = 0; s < starPoints.length; s++) {
+      var sx = starPoints[s][0], sy = starPoints[s][1];
       ctx.beginPath();
       ctx.arc((sx + 1) * cellSize, (sy + 1) * cellSize, cellSize * 0.15, 0, Math.PI * 2);
       ctx.fill();
     }
 
     // Stones
-    const radius = cellSize * 0.45;
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const cell = game.board[y * size + x];
+    var radius = cellSize * 0.45;
+    for (var y = 0; y < size; y++) {
+      for (var x = 0; x < size; x++) {
+        var cell = game.board[y * size + x];
         if (!cell) continue;
-        const cx = (x + 1) * cellSize;
-        const cy = (y + 1) * cellSize;
+        var cx = (x + 1) * cellSize;
+        var cy = (y + 1) * cellSize;
 
         // Shadow
         ctx.beginPath();
@@ -85,9 +103,9 @@ window.GoBoard = {
 
     // Last move indicator
     if (game.lastMove) {
-      const lx = (game.lastMove.x + 1) * cellSize;
-      const ly = (game.lastMove.y + 1) * cellSize;
-      const lastStone = game.board[game.lastMove.y * size + game.lastMove.x];
+      var lx = (game.lastMove.x + 1) * cellSize;
+      var ly = (game.lastMove.y + 1) * cellSize;
+      var lastStone = game.board[game.lastMove.y * size + game.lastMove.x];
       ctx.beginPath();
       ctx.arc(lx, ly, radius * 0.35, 0, Math.PI * 2);
       ctx.strokeStyle = lastStone === 1 ? '#fff' : '#000';
@@ -96,22 +114,48 @@ window.GoBoard = {
     }
   },
 
+  /**
+   * Flash a red X at board position to indicate invalid move
+   */
+  flashInvalid(game, x, y) {
+    var canvas = document.getElementById('board');
+    var ctx = canvas.getContext('2d');
+    var cellSize = this._cellSize(canvas, game.size);
+    var cx = (x + 1) * cellSize;
+    var cy = (y + 1) * cellSize;
+    var r = cellSize * 0.3;
+
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy - r);
+    ctx.lineTo(cx + r, cy + r);
+    ctx.moveTo(cx + r, cy - r);
+    ctx.lineTo(cx - r, cy + r);
+    ctx.stroke();
+
+    // Clear after 400ms by re-rendering
+    var self = this;
+    setTimeout(function() { self.render(game); }, 400);
+  },
+
   onClick(event, game) {
-    const canvas = document.getElementById('board');
-    const rect = canvas.getBoundingClientRect();
-    const scale = canvas.width / rect.width;
-    const cellSize = this._cellSize(canvas, game.size);
-    const x = Math.round(((event.clientX - rect.left) * scale - cellSize / 2) / cellSize);
-    const y = Math.round(((event.clientY - rect.top) * scale - cellSize / 2) / cellSize);
+    var canvas = document.getElementById('board');
+    var rect = canvas.getBoundingClientRect();
+    var scale = canvas.width / rect.width;
+    var cellSize = this._cellSize(canvas, game.size);
+    var x = Math.round(((event.clientX - rect.left) * scale - cellSize / 2) / cellSize);
+    var y = Math.round(((event.clientY - rect.top) * scale - cellSize / 2) / cellSize);
     if (x < 0 || x >= game.size || y < 0 || y >= game.size) return null;
-    return { x, y };
+    return { x: x, y: y };
   },
 
   updateStatus(game) {
-    const statusEl = document.getElementById('status');
-    const capturesEl = document.getElementById('captures');
+    var statusEl = document.getElementById('status');
+    var capturesEl = document.getElementById('captures');
     if (game.over) {
-      const score = GoEngine.simpleScore(game);
+      var score = GoEngine.simpleScore(game);
       statusEl.textContent = 'Game Over \u2014 ' + score.winner.charAt(0).toUpperCase() + score.winner.slice(1) + ' wins';
       statusEl.className = 'status game-over';
     } else {

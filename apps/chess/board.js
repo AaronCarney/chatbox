@@ -1,52 +1,54 @@
 window.ChessBoard = (function () {
-  const PIECE_CHARS = {
+  var PIECE_CHARS = {
     k: '\u265A', q: '\u265B', r: '\u265C', b: '\u265D', n: '\u265E', p: '\u265F',
     K: '\u2654', Q: '\u2655', R: '\u2656', B: '\u2657', N: '\u2658', P: '\u2659',
   };
 
-  let selectedSquare = null;
-  let lastMoveFrom = null;
-  let lastMoveTo = null;
+  var selectedSquare = null;
+  var lastMoveFrom = null;
+  var lastMoveTo = null;
+  var promotionCallback = null;
 
   function squareName(row, col) {
     return String.fromCharCode(97 + col) + (8 - row);
   }
 
   function render(game) {
-    const container = document.getElementById('board-container');
-    // Clear by removing children (avoids innerHTML)
+    var container = document.getElementById('board-container');
     while (container.firstChild) container.removeChild(container.firstChild);
 
-    const board = document.createElement('div');
+    var board = document.createElement('div');
     board.className = 'board';
 
-    const legalTargets = selectedSquare
-      ? game.moves({ square: selectedSquare, verbose: true }).map(m => m.to)
+    var legalTargets = selectedSquare
+      ? game.moves({ square: selectedSquare, verbose: true }).map(function(m) { return m.to; })
       : [];
 
     // Get last move for highlight
-    const hist = game.history({ verbose: true });
+    var hist = game.history({ verbose: true });
     if (hist.length > 0) {
-      const last = hist[hist.length - 1];
+      var last = hist[hist.length - 1];
       lastMoveFrom = last.from;
       lastMoveTo = last.to;
     }
 
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const name = squareName(row, col);
-        const sq = document.createElement('div');
+    for (var row = 0; row < 8; row++) {
+      for (var col = 0; col < 8; col++) {
+        var name = squareName(row, col);
+        var sq = document.createElement('div');
         sq.className = 'square ' + ((row + col) % 2 === 0 ? 'light' : 'dark');
         sq.dataset.square = name;
 
         if (name === selectedSquare) sq.classList.add('selected');
-        if (legalTargets.includes(name)) sq.classList.add('legal-move');
+        if (legalTargets.indexOf(name) !== -1) sq.classList.add('legal-move');
         if (name === lastMoveFrom || name === lastMoveTo) sq.classList.add('last-move');
 
-        const piece = game.get(name);
+        var piece = game.get(name);
         if (piece) sq.textContent = PIECE_CHARS[piece.color === 'w' ? piece.type.toUpperCase() : piece.type] || '';
 
-        sq.addEventListener('click', () => onSquareClick(name, game));
+        (function(n) {
+          sq.addEventListener('click', function() { onSquareClick(n, game); });
+        })(name);
         board.appendChild(sq);
       }
     }
@@ -54,9 +56,37 @@ window.ChessBoard = (function () {
     container.appendChild(board);
   }
 
+  function showPromotionPicker(color, callback) {
+    var overlay = document.getElementById('promotion-overlay');
+    var picker = document.getElementById('promotion-picker');
+    while (picker.firstChild) picker.removeChild(picker.firstChild);
+
+    var pieces = ['q', 'r', 'b', 'n'];
+    var chars = color === 'w'
+      ? ['\u2655', '\u2656', '\u2657', '\u2658']
+      : ['\u265B', '\u265C', '\u265D', '\u265E'];
+
+    for (var i = 0; i < pieces.length; i++) {
+      (function(p, ch) {
+        var btn = document.createElement('button');
+        btn.className = 'promo-btn';
+        btn.textContent = ch;
+        btn.addEventListener('click', function() {
+          overlay.style.display = 'none';
+          promotionCallback = null;
+          callback(p);
+        });
+        picker.appendChild(btn);
+      })(pieces[i], chars[i]);
+    }
+
+    overlay.style.display = 'flex';
+    promotionCallback = callback;
+  }
+
   function updateStatus(game) {
-    const statusEl = document.getElementById('status');
-    const historyEl = document.getElementById('move-history');
+    var statusEl = document.getElementById('status');
+    var historyEl = document.getElementById('move-history');
 
     if (game.in_checkmate()) {
       statusEl.textContent = (game.turn() === 'w' ? 'Black' : 'White') + ' wins by checkmate!';
@@ -72,7 +102,6 @@ window.ChessBoard = (function () {
       statusEl.className = 'status';
     }
 
-    // Format move history as numbered pairs
     var moves = game.history();
     var formatted = [];
     for (var i = 0; i < moves.length; i += 2) {
@@ -81,13 +110,17 @@ window.ChessBoard = (function () {
     }
     historyEl.textContent = formatted.join('  ');
     historyEl.scrollTop = historyEl.scrollHeight;
+
+    // Update undo button state
+    var undoBtn = document.getElementById('btn-undo');
+    if (undoBtn) undoBtn.disabled = moves.length === 0;
   }
 
   function onSquareClick(name, game) {
     if (game.game_over()) return null;
 
+    // Deselect on re-click
     if (selectedSquare && selectedSquare === name) {
-      // Toggle off — deselect
       selectedSquare = null;
       render(game);
       updateStatus(game);
@@ -95,6 +128,19 @@ window.ChessBoard = (function () {
     }
 
     if (selectedSquare && selectedSquare !== name) {
+      // Check for promotion
+      if (ChessEngine.isPromotion(game, selectedSquare, name)) {
+        var from = selectedSquare;
+        selectedSquare = null;
+        showPromotionPicker(game.turn(), function(piece) {
+          var result = ChessEngine.makeMove(game, from, name, piece);
+          render(game);
+          updateStatus(game);
+          if (result && window._chessMoveCallback) window._chessMoveCallback(result);
+        });
+        return 'pending_promotion';
+      }
+
       var result = ChessEngine.makeMove(game, selectedSquare, name);
       selectedSquare = null;
       render(game);
@@ -120,5 +166,5 @@ window.ChessBoard = (function () {
     lastMoveTo = null;
   }
 
-  return { render, updateStatus, onSquareClick, clearSelection };
+  return { render, updateStatus, onSquareClick, clearSelection, showPromotionPicker };
 })();
