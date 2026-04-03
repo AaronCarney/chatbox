@@ -29,9 +29,11 @@ Close all CRITICAL and IMPORTANT gaps between the approved design spec and the c
 - `api.ts` `streamChat`: parse SSE `data:` lines, JSON.parse each one. Yield objects with `{type, content?, toolCall?}` shape. Stop on `[DONE]`.
 - `useChat.ts` `sendMessage`: switch on `chunk.type`:
   - `"token"` → accumulate `chunk.content` to `streamingText`
-  - `"tool_call_start"` → return `{ type: 'tool_calls', toolCalls: [chunk.toolCall] }` (or accumulate if multiple)
+  - `"tool_call_start"` → accumulate tool calls. Server may emit multiple `tool_call_start` events per turn (one per tool call). Buffer all tool calls until stream ends or next text token.
   - `"error"` → surface to user
 - Remove all `choices[0].delta` parsing from the client — server already unwraps.
+
+**New `sendMessage` return contract:** Returns `Promise<{ type: 'text' } | { type: 'tool_calls', toolCalls: Array<{ id: string, name: string, arguments: string }> }>`. The caller (`ChatBridgeApp.tsx`) switches on the return type to dispatch tool calls or display text.
 
 **Files:** `src/renderer/services/api.ts`, `src/renderer/hooks/useChat.ts`
 
@@ -53,8 +55,9 @@ Close all CRITICAL and IMPORTANT gaps between the approved design spec and the c
       addToolResult(toolCallId, JSON.stringify({ error: 'No active app' }));
     }
   ```
-- `PostMessageBroker.ts`: add `requestState(appId, iframe)` method — sends `get_state` message to iframe, returns Promise resolved by MessageChannel response.
-- Each app bridge (`chess/bridge.js`, `go/bridge.js`, `spotify/app.js`): add handler for `get_state` message type that calls the existing `getState()` function and responds.
+- `PostMessageBroker.ts`: add `requestState(appId, iframe)` method — sends wire type `state.request` (dot-notation per protocol convention) to iframe via MessageChannel, returns Promise resolved by channel response.
+- `chatbridge-sdk.js`: add listener for wire type `state.request` → calls registered `stateProvider` callback → responds on the MessageChannel port.
+- Each app bridge (`chess/bridge.js`, `go/bridge.js`, `spotify/app.js`): register a state provider via `ChatBridge.onStateRequest(fn)` that calls the existing `getState()` / equivalent and returns the result.
 
 **Files:** `src/renderer/components/ChatBridgeApp.tsx`, `src/renderer/components/iframe/PostMessageBroker.ts`, `apps/chess/bridge.js`, `apps/go/bridge.js`, `apps/spotify/app.js`
 
@@ -80,8 +83,6 @@ Close all CRITICAL and IMPORTANT gaps between the approved design spec and the c
 **Fix:**
 - `chat.ts`: if no `activeAppId` and the last user message doesn't mention an app name or tool keyword, pass `tool_choice: "auto"` (default). If `activeAppId` is set, pass `tool_choice: "auto"`.
 - `llm.ts` `streamChat`: accept optional `toolChoice` param, pass to OpenAI as `tool_choice`. When tools array is empty, omit `tools` and `tool_choice` entirely.
-- Simpler alternative (MVP): always pass `tool_choice: "auto"` — OpenAI's default behavior is already conservative. Just ensure the parameter is explicitly set for documentation.
-
 **Files:** `server/src/routes/chat.ts`, `server/src/services/llm.ts`
 
 ---
@@ -91,10 +92,10 @@ Close all CRITICAL and IMPORTANT gaps between the approved design spec and the c
 **Problem:** No limit on tool invocations per conversation turn.
 
 **Fix:**
-- `chat.ts`: add counter `let toolCallCount = 0` at request scope. In the streaming loop, when `tool_call_start` is emitted, increment. If `toolCallCount >= 10`, emit error event and end stream.
-- `ChatBridgeApp.tsx`: track tool call count in the send loop. Break after 10 and add a system message explaining the limit.
+- `chat.ts`: add counter `let toolCallCount = 0` at request scope. In the streaming loop, when `tool_call_start` is emitted, increment. If `toolCallCount >= 10`, emit error event `{"type":"error","message":"Tool call limit exceeded (max 10 per turn)"}` and end stream. Log the violation.
+- Server is the single enforcement authority — client trusts the server's error event.
 
-**Files:** `server/src/routes/chat.ts`, `src/renderer/components/ChatBridgeApp.tsx`
+**Files:** `server/src/routes/chat.ts`
 
 ---
 
@@ -139,7 +140,7 @@ Close all CRITICAL and IMPORTANT gaps between the approved design spec and the c
 
 **Fix:**
 - `server/src/db/client.ts`: add `saveMessage(sessionPseudonym, role, content, toolCallId?, appId?)` and `getMessages(sessionPseudonym, limit?)`.
-- `chat.ts`: after building the response (stream complete), save the user message and assistant response to DB. On request start, if `messages` array is empty but `sessionPseudonym` is provided, load from DB.
+- `chat.ts`: after `res.end()`, fire-and-forget save of user message and accumulated assistant response to DB (non-blocking — don't delay the response). On request start, if `messages` array is empty but `sessionPseudonym` is provided, load history from DB before building LLM messages.
 - Tag each message with `data_classification: 'ephemeral_context'` (covers I9).
 
 **Files:** `server/src/db/client.ts`, `server/src/routes/chat.ts`
@@ -285,21 +286,93 @@ Dependencies determine order. Recommended sequence:
 **Phase 1 — Wire protocol (unblocks all tool testing):**
 C1 (SSE alignment), I11 (activeAppId), I10 (Clerk token)
 
+**Integration checkpoint after Phase 1:** Start server + frontend. Send a message. Verify: (a) text streams token-by-token to the UI, (b) send "let's play chess" and verify `tool_call_start` arrives at the client and `ChatBridgeApp` attempts to launch the chess iframe. Fix any issues before proceeding.
+
 **Phase 2 — Tool pipeline (unblocks app testing):**
 C2 (get_app_state), C5 (max 10 calls), I3 (dynamic system prompt), I4 (reject unknown tools), I6 (30s timeout)
 
 **Phase 3 — Security hardening:**
 C4 (tool_choice), C6 (8K token cap), C7 (credentialless), C10 (origin enforcement), I1 (PII all roles), I2 (address pattern), I8 (cost tracking)
 
-**Phase 4 — Session + persistence:**
-C8 (SessionManager), C9 (chat history DB), C3 (Spotify session binding), I9 (data classification)
+**Phase 4 — Session + persistence (internal order: C8 first, then C3/C9 in parallel):**
+C8 (SessionManager) → then C9 (chat history DB) + C3 (Spotify session binding) in parallel. C3 depends on C8 — the pseudonym from `sessionManager.generatePseudonym()` is passed in `task.launch` payload to Spotify. I9 (data classification) covered by C9.
 
 **Phase 5 — Polish:**
 I5 (two-tier Spotify), I7 (retries), I12 (resize/state events), N1-N6
 
 ---
 
-## 7. Test Strategy
+## 7. Observability & Logging
+
+Pino structured logger is already wired (`server/src/lib/logger.ts`) with request middleware. This section defines comprehensive logging coverage across the full request lifecycle.
+
+### 7.1 Request Lifecycle Logging (already partial — extend)
+
+Every API request already logs `{ method, url, status, duration, userId }` via `requestLogger()`. Extend:
+
+- **Chat route:** Already has child logger with `requestId`. Add:
+  - `log.info({ tokenEstimate }, 'token budget check')` — after token counting (C6)
+  - `log.info({ toolCallCount }, 'tool call limit check')` — when approaching/hitting limit (C5)
+  - `log.info({ pseudonym }, 'session bound')` — after SessionManager resolves pseudonym (C8)
+  - `log.info({ messagesSaved: count }, 'chat history persisted')` — after DB save (C9)
+  - `log.warn({ toolChoice: 'none', reason }, 'conceptual question detected')` — when tool_choice set to none (C4)
+
+### 7.2 Security Event Logging
+
+Every security enforcement point must log at `warn` level minimum:
+
+| Event | Level | Fields | Source |
+|-------|-------|--------|--------|
+| PII redacted | warn | `{ patterns: ['email', 'phone'], messageRole }` | pii.ts |
+| Tool result validation failed | warn | `{ toolName, errors, appId }` | chat.ts (already exists) |
+| Tool result size rejected | warn | `{ toolName, size, maxSize: 2048 }` | safety.ts |
+| Tool call limit exceeded | error | `{ toolCallCount, max: 10, requestId }` | chat.ts |
+| Token budget exceeded | warn | `{ tokenEstimate, max: 8000, trimmedTo }` | chat.ts |
+| Unknown tool result rejected | warn | `{ toolName, appId }` | chat.ts (I4) |
+| Origin rejected (postMessage) | warn | `{ origin, expected }` | PostMessageBroker.ts (client-side console.warn) |
+| App timeout | warn | `{ appId, timeoutMs: 30000 }` | ChatBridgeApp.tsx (client-side console.warn) |
+| Moderation flagged | error | `{ categories, appId, requestId }` | moderation.ts (if added) |
+
+### 7.3 OAuth Flow Logging
+
+- `log.info({ sessionId }, 'spotify oauth: authorize redirect')` — already exists
+- `log.info({ sessionId }, 'spotify oauth: token exchange complete')` — already exists
+- `log.error({ err }, 'spotify oauth: callback failed')` — already exists
+- Add: `log.info({ sessionId, endpoint }, 'spotify api proxy call')` — for each Spotify API proxy request
+- Add: `log.warn({ sessionId }, 'spotify token missing — user not authorized')` — when getSpotifyToken returns null
+
+### 7.4 Frontend Logging
+
+Client-side logging for debugging integration issues (console-based, not pino):
+
+- `console.info('[ChatBridge] SSE event:', type, ...)` — each parsed SSE event in api.ts
+- `console.info('[ChatBridge] Tool call dispatched:', toolName, appId)` — in ChatBridgeApp.tsx
+- `console.info('[ChatBridge] Tool result received:', toolCallId)` — on broker tool.result
+- `console.warn('[ChatBridge] App timeout:', appId)` — on 30s timeout
+- `console.info('[ChatBridge] App launched:', appId)` — on iframe creation
+- `console.info('[ChatBridge] PostMessage received:', type, origin)` — in broker onMessage
+
+Prefix all client logs with `[ChatBridge]` for easy filtering in browser DevTools.
+
+### 7.5 Cost Tracking Logs (I8)
+
+After each chat completion, log:
+```
+log.info({
+  requestId,
+  model: 'gpt-4o',
+  promptTokens: usage?.prompt_tokens || estimatedPrompt,
+  completionTokens: usage?.completion_tokens || estimatedCompletion,
+  estimatedCost: (promptTokens * 2.5 + completionTokens * 10) / 1_000_000,
+  duration
+}, 'llm usage')
+```
+
+These logs feed the cost analysis deliverable. Parse with `grep 'llm usage' | jq` for aggregate cost reporting.
+
+---
+
+## 8. Test Strategy
 
 - All server fixes: update existing vitest tests or add new ones.
 - Frontend fixes: manual integration testing (start server + vite, verify tool calls flow).
