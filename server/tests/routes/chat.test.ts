@@ -223,6 +223,7 @@ describe('POST /api/chat', () => {
         activeAppId: 'app-1',
         toolResult: {
           tool_call_id: 'tc-42',
+          name: 'submit_grade',
           data: { grade: 95 },
         },
       });
@@ -246,6 +247,7 @@ describe('POST /api/chat', () => {
         activeAppId: 'app-1',
         toolResult: {
           tool_call_id: 'tc-99',
+          name: 'submit_grade',
           data: 'bad payload',
         },
       });
@@ -266,5 +268,39 @@ describe('POST /api/chat', () => {
 
     expect(res.text).toContain('"type":"error"');
     expect(res.text).toContain('LLM unavailable');
+  });
+
+  it('emits error when tool call count exceeds 10', async () => {
+    const { streamChat } = await import('../../src/services/llm.js');
+    vi.mocked(streamChat).mockImplementation(async function* () {
+      for (let i = 0; i < 11; i++) {
+        yield {
+          choices: [{
+            delta: {
+              tool_calls: [{ id: `tc-${i}`, function: { name: 'launch_app', arguments: '{}' } }],
+            },
+          }],
+        };
+      }
+    });
+    const res = await request(app)
+      .post('/api/chat')
+      .send({ messages: [{ role: 'user', content: 'hi' }] });
+    expect(res.text).toContain('Tool call limit exceeded');
+  });
+
+  it('rejects tool result when tool name not found in app schema', async () => {
+    const { streamChat } = await import('../../src/services/llm.js');
+    vi.mocked(streamChat).mockImplementation(async function* () {
+      yield { choices: [{ delta: { content: 'OK' } }] };
+    });
+    const res = await request(app)
+      .post('/api/chat')
+      .send({
+        messages: [{ role: 'user', content: 'run tool' }],
+        activeAppId: 'app-1',
+        toolResult: { tool_call_id: 'tc-99', name: 'nonexistent_tool', data: { foo: 'bar' } },
+      });
+    expect(res.text).toContain('Unknown tool');
   });
 });

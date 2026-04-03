@@ -42,8 +42,16 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       const toolDef = activeApp?.tools?.find(
         (t: { name: string }) => t.name === toolResult.name
       );
-      const schema = toolDef?.input_schema ?? {};
 
+      // Reject unknown tools before validation
+      if (!toolDef) {
+        log.warn({ toolName: toolResult.name, appId: activeAppId }, 'unknown tool result rejected');
+        res.write(`data: ${JSON.stringify({ type: 'error', message: `Unknown tool: ${toolResult.name}` })}\n\n`);
+        res.end();
+        return;
+      }
+
+      const schema = toolDef.input_schema ?? {};
       const validation = validateToolResult(toolResult.data, schema);
       if (!validation.valid) {
         log.warn({ toolName: toolResult.name, errors: validation.errors }, 'tool result validation failed');
@@ -68,8 +76,9 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     const llmMessages = buildMessages(trimmed, tools, apps, activeAppId);
 
     // Stream from LLM
-    const stream = streamChat(llmMessages, tools);
+    const stream = streamChat(llmMessages, tools, 'auto');
 
+    let toolCallCount = 0;
     for await (const chunk of stream) {
       const choice = chunk?.choices?.[0];
       if (!choice) continue;
@@ -81,6 +90,12 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       }
 
       if (delta?.tool_calls?.length) {
+        toolCallCount++;
+        if (toolCallCount > 10) {
+          log.error({ toolCallCount, max: 10, requestId }, 'tool call limit exceeded');
+          res.write(`data: ${JSON.stringify({ type: 'error', message: 'Tool call limit exceeded (max 10 per turn)' })}\n\n`);
+          break;
+        }
         const tc = delta.tool_calls[0];
         log.info({ toolCallId: tc.id, toolName: tc.function?.name }, 'tool call detected');
         res.write(
