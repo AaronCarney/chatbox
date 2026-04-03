@@ -3,6 +3,7 @@ import cors from 'cors';
 import { healthRouter } from './routes/health.js';
 import { appsRouter } from './routes/apps.js';
 import { chatRouter } from './routes/chat.js';
+import { oauthRouter } from './routes/oauth.js';
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json());
 app.use('/api', healthRouter);
 app.use('/api', appsRouter);
 app.use('/api', chatRouter);
+app.use('/api', oauthRouter);
 
 const PORT = process.env.PORT || 3001;
 
