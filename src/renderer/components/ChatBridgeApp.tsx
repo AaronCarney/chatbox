@@ -37,6 +37,7 @@ export function ChatBridgeApp() {
   const [availableApps, setAvailableApps] = useState<AvailableApp[]>([])
   const [completedActivities, setCompletedActivities] = useState<CompletedActivity[]>([])
   const [input, setInput] = useState('')
+  const [iframeHeights, setIframeHeights] = useState<Map<string, number>>(new Map())
 
   const brokerRef = useRef<PostMessageBroker | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -64,12 +65,73 @@ export function ChatBridgeApp() {
       ])
     })
 
+    broker.on('app.resize', (data: unknown) => {
+      const d = data as { height?: number } | null
+      if (d?.height) {
+        const clamped = Math.min(600, Math.max(200, d.height))
+        const active = getActiveApp()
+        if (active) {
+          setIframeHeights(prev => new Map(prev).set(active.id, clamped))
+        }
+      }
+    })
+
+    broker.on('app.state', (data: unknown) => {
+      console.info('[ChatBridge] App state update received:', data)
+    })
+
     return () => broker.destroy()
   }, [resolveToolCall])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText])
+
+  const dispatchToolToApp = useCallback(async (
+    toolId: string,
+    toolName: string,
+    args: Record<string, any>,
+    targetApp: { id: string },
+  ): Promise<any> => {
+    const iframe = iframeRefs.current.get(targetApp.id)
+    if (!iframe || !brokerRef.current) {
+      return { error: 'No active iframe ref' }
+    }
+
+    const MAX_RETRIES = 3
+    const TIMEOUT_MS = 30000
+    let lastError = ''
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const toolCallPromise = handleToolCall({ id: toolId, name: toolName })
+        brokerRef.current.sendToIframe(iframe, 'tool.invoke', {
+          name: toolName,
+          arguments: args,
+          requestId: toolId,
+        })
+
+        const result = await Promise.race([
+          toolCallPromise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('App timed out')), TIMEOUT_MS)
+          ),
+        ])
+
+        return result
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err)
+        console.warn(`[ChatBridge] Tool call attempt ${attempt + 1}/${MAX_RETRIES} failed:`, lastError)
+        if (attempt < MAX_RETRIES - 1) {
+          resolveToolCall({ error: lastError })
+        }
+      }
+    }
+
+    console.warn('[ChatBridge] App timeout:', targetApp.id)
+    resolveToolCall({ error: lastError })
+    return { error: lastError }
+  }, [handleToolCall, resolveToolCall, iframeRefs])
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim()
@@ -136,20 +198,9 @@ export function ChatBridgeApp() {
 
         default: {
           const activeApp = getActiveApp()
-          if (activeApp && brokerRef.current) {
-            const iframe = iframeRefs.current.get(activeApp.id)
-            if (iframe) {
-              const toolCallPromise = handleToolCall({ id, name })
-              brokerRef.current.sendToIframe(iframe, 'tool.invoke', {
-                name,
-                arguments: parseArgs(),
-                requestId: id,
-              })
-              const toolResult = await toolCallPromise
-              addToolResult(id, JSON.stringify(toolResult))
-            } else {
-              addToolResult(id, JSON.stringify({ error: 'No active iframe ref' }))
-            }
+          if (activeApp) {
+            const result = await dispatchToolToApp(id, name, parseArgs(), activeApp)
+            addToolResult(id, JSON.stringify(result))
           } else {
             addToolResult(id, JSON.stringify({ error: 'No active app' }))
           }
@@ -157,7 +208,7 @@ export function ChatBridgeApp() {
         }
       }
     }
-  }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall])
+  }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -179,6 +230,7 @@ export function ChatBridgeApp() {
             appId={app.id}
             iframeUrl={app.iframeUrl}
             isActive={app.status === 'active'}
+            height={iframeHeights.get(app.id)}
             onRef={(el) => {
               if (el) {
                 iframeRefs.current.set(app.id, el)
