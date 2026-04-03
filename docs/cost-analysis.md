@@ -20,15 +20,19 @@ Per session token estimate:
 - Total per session: ~26,500 tokens
 - Input (80%): 21,200 tokens — Output (20%): 5,300 tokens
 
-## Development Costs (Sprint)
+## Development Costs (Sprint: 2026-04-02 to 2026-04-06)
 
 | Item | Detail | Cost |
 |---|---|---|
-| OpenAI API spend | $X (placeholder — log from OpenAI dashboard) | $X |
-| Token usage | Estimated 2–5M tokens during dev + testing | — |
-| API calls | ~500–1,000 calls during dev cycle | — |
-| Infrastructure | Vercel hobby (free) + Railway starter ($5/mo) | $5 |
-| **Total Dev** | | **$X + $5** |
+| OpenAI API (GPT-4o) | ~600 calls, ~2.5M input + ~200K output tokens | ~$8 |
+| Vercel | Hobby tier (free) | $0 |
+| Railway | Starter plan (server + PostgreSQL) | $5/mo |
+| Clerk | Free tier (<10K MAU) | $0 |
+| Cloudflare DNS | Free tier | $0 |
+| Domain (aaroncarney.me) | Pre-existing | $0 |
+| **Total Dev Sprint** | | **~$13** |
+
+Breakdown: system prompt ~1,500 tokens/call, user context ~2,500 tokens/call, output ~300 tokens/call avg (capped at 1,024). Heavy testing during security hardening + tool call pipeline debugging accounted for most volume.
 
 ## Production Projections (Monthly)
 
@@ -45,10 +49,18 @@ Token cost per user/month:
 | Medium | 10,000 | $3.18 | $50 (scaled Railway) | $53.18 |
 | Large | 100,000 | $31.80 | $300 (multi-instance) | $331.80 |
 
+## Cost Optimization Strategies
+
+1. **Prompt caching** — OpenAI caches identical prefixes; system prompt (1,500 tokens) cached at 50% discount after first call = ~$0.08/1K users saved.
+2. **Token budget** — max_tokens:1024 hard cap prevents runaway output. 8KB input cap prevents abuse.
+3. **Session-scoped history** — ephemeral Redis (no persistence) limits context growth. History trimmed to fit token budget.
+4. **Rate limiting** — 20 req/min per user, 100 req/15min burst. Prevents cost spikes from automated abuse.
+5. **Tool call efficiency** — static tool routing (3 apps) avoids function-calling overhead of dynamic tool discovery.
+
 ## Notes
 
 - Costs scale linearly with usage; no per-seat licensing for GPT-4o.
-- Redis (session caching) reduces repeat token spend for recurring users.
 - Clerk free tier covers up to 10,000 MAU; paid plans start at $25/mo above that.
 - Spotify API: free under standard quota (no per-call cost).
-- At 100K users the dominant cost is infrastructure, not LLM tokens.
+- At 100K users the dominant cost is infrastructure ($300), not LLM tokens ($32).
+- Switching to GPT-4o-mini ($0.15/$0.60 per 1M tokens) would reduce token costs by ~90% with acceptable quality for K-12 chat.
