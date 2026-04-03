@@ -303,4 +303,23 @@ describe('POST /api/chat', () => {
       });
     expect(res.text).toContain('Unknown tool');
   });
+
+  it('trims messages when token estimate exceeds 8000', async () => {
+    const { trimHistory } = await import('../../src/services/context.js');
+    const { streamChat } = await import('../../src/services/llm.js');
+    vi.mocked(streamChat).mockImplementation(async function* () {
+      yield { choices: [{ delta: { content: 'ok' } }] };
+    });
+    // Create messages totaling >32000 chars (~8000 tokens)
+    const longMessages = Array.from({ length: 40 }, (_, i) => ({
+      role: 'user',
+      content: 'x'.repeat(1000),
+    }));
+    await request(app)
+      .post('/api/chat')
+      .send({ messages: longMessages });
+    const calls = vi.mocked(trimHistory).mock.calls;
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall[1]).toBeLessThan(20);
+  });
 });

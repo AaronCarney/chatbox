@@ -71,8 +71,27 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       });
     }
 
+    // Token budget check: 8K input cap with progressive trimming
+    const estimateTokens = (msgs: any[]) =>
+      Math.ceil(JSON.stringify(msgs).length / 4);
+
+    let maxVerbatim = 20;
+    let tokenEstimate = estimateTokens(sanitizedMessages);
+
+    while (tokenEstimate > 8000 && maxVerbatim > 5) {
+      maxVerbatim -= 5;
+      const testTrimmed = trimHistory(sanitizedMessages, maxVerbatim);
+      tokenEstimate = estimateTokens(testTrimmed);
+    }
+
+    if (tokenEstimate > 8000) {
+      log.warn({ tokenEstimate, maxVerbatim, max: 8000 }, 'token budget exceeded after trimming');
+    }
+
+    log.info({ tokenEstimate, maxVerbatim }, 'token budget check');
+
     // Trim history and build LLM messages
-    const trimmed = trimHistory(sanitizedMessages);
+    const trimmed = trimHistory(sanitizedMessages, maxVerbatim);
     const llmMessages = buildMessages(trimmed, tools, apps, activeAppId);
 
     // Stream from LLM
