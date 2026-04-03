@@ -1,39 +1,26 @@
-# Task 6: App Seed Data
+# Task 6: Credentialless Iframe + Origin Enforcement (C7, C10)
 
 ## Status
 COMPLETE
 
 ## What Was Done
 
-Created `server/src/db/seed.ts` with hardcoded seed data for three applications:
+### C7 — Credentialless iframe
+Added `{...{ credentialless: '' } as any}` spread to `IframeManager.tsx` via JSX spread (React doesn't type this attribute natively).
 
-### Chess App
-- Tool definitions: `start_game`, `make_move` (with regex validation for board positions), `get_board_state`, `get_hint`
-- Auth: none
-- All input schemas configured with `additionalProperties: false`
+### C10 — PostMessage origin enforcement (inbound)
+- `ChatBridgeApp.tsx`: Changed `new PostMessageBroker([])` to `new PostMessageBroker([window.location.origin])` so the broker rejects messages not originating from the app's own origin.
+- `sdk/chatbridge-sdk.js`: Added `let parentOrigin = '*'` to internal state. On `task.launch`, captures `event.origin` into `parentOrigin`. All four `window.parent.postMessage(envelope, '*')` calls updated to use `parentOrigin` (sendState, respondToTool, resize, complete non-port path).
 
-### Go App
-- Tool definitions: `start_game` (board_size: 9|13|19), `place_stone` (x/y integer coords), `get_board_state`, `pass_turn`, `get_hint`
-- Auth: none
-- All input schemas configured with `additionalProperties: false`
-
-### Spotify App
-- Tool definitions: `search_tracks` (query max 200 chars), `create_playlist` (name max 100), `add_to_playlist` (up to 50 track IDs), `get_recommendations` (up to 5 seed track IDs)
-- Auth: OAuth2 with proper scopes (user-read-private, playlist-modify-public, playlist-modify-private)
-- OAuth config points to official Spotify endpoints
-
-## Implementation Details
-
-- Used PostgreSQL `ON CONFLICT (id) DO UPDATE SET` for upsert semantics
-- All tool parameters properly typed as JSON schema with required fields and validation constraints
-- Descriptions provided for all tools
-- File follows TypeScript conventions with proper imports from `./client.js`
+### Design note
+Outbound `PostMessageBroker.sendToIframe` was intentionally left using `'*'` — sandboxed iframes without `allow-same-origin` have effective origin `null`, so posting with a specific origin causes silent drops. Origin enforcement is inbound only.
 
 ## Verification
 
-- All 21 tests pass (no new test failures)
-- Code compiles without syntax errors
-- Commit: `0117834` on branch `task-6-seed-data`
+- `pnpm tsc --noEmit`: no errors in modified files (pre-existing unrelated errors in electron-vite config and other files)
+- `cd server && pnpm test`: 91/91 tests pass
 
-## File Path
-`server/src/db/seed.ts`
+## Files Modified
+- `src/renderer/components/iframe/IframeManager.tsx`
+- `src/renderer/components/ChatBridgeApp.tsx`
+- `sdk/chatbridge-sdk.js`
