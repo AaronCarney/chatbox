@@ -1,4 +1,11 @@
-import type { CompactionPoint, Message, Settings } from '@shared/types'
+/**
+ * Attachment payload formatting utilities.
+ *
+ * Extracted from context-management/attachment-payload.ts during security
+ * hardening (direct model-call packages removed). Contains only the pure
+ * formatting helpers needed by token-estimation and token.tsx — no LLM or
+ * search API calls.
+ */
 
 export const MAX_INLINE_FILE_LINES = 500
 export const PREVIEW_LINES = 100
@@ -16,14 +23,6 @@ export interface AttachmentWrapperSuffixParams {
   previewLines?: number
   totalLines?: number
   fileKey?: string
-}
-
-export interface SelectMessagesForSendContextParams {
-  settings: Partial<Settings>
-  msgs: Message[]
-  compactionPoints?: CompactionPoint[]
-  preserveLastUserMessage?: boolean
-  keepToolCallRounds?: number
 }
 
 export function buildAttachmentWrapperPrefix(params: AttachmentWrapperPrefixParams): string {
@@ -52,37 +51,4 @@ export function buildAttachmentWrapperSuffix(params: AttachmentWrapperSuffixPara
   suffix += '</ATTACHMENT_FILE>\n'
 
   return suffix
-}
-
-export function selectMessagesForSendContext(params: SelectMessagesForSendContextParams): Message[] {
-  const { settings, msgs, compactionPoints, preserveLastUserMessage = true, keepToolCallRounds = 2 } = params
-
-  if (msgs.length === 0) {
-    return []
-  }
-
-  const maxContextMessageCount = settings.maxContextMessageCount ?? Number.MAX_SAFE_INTEGER
-
-  const filtered: Message[] = []
-  for (const msg of msgs) {
-    if (msg.error || msg.errorCode) {
-      continue
-    }
-    if (msg.generating === true) {
-      continue
-    }
-    filtered.push(msg)
-  }
-
-  if (filtered.length === 0) {
-    return []
-  }
-
-  const limit = preserveLastUserMessage ? maxContextMessageCount + 1 : maxContextMessageCount
-
-  if (filtered.length <= limit) {
-    return filtered
-  }
-
-  return filtered.slice(-limit)
 }

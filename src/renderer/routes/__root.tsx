@@ -46,7 +46,6 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { useEffect, useMemo, useRef } from 'react'
 import { ClerkProvider, SignedIn, SignedOut, SignIn, UserButton } from '@clerk/clerk-react'
 import SettingsModal, { navigateToSettings } from '@/modals/Settings'
-import { prefetchModelRegistry } from '@/packages/model-registry'
 import { getOS } from '@/packages/navigator'
 import * as remote from '@/packages/remote'
 import PictureDialog from '@/pages/PictureDialog'
@@ -149,7 +148,6 @@ function Root() {
     ;(async () => {
       // Wait for stores to hydrate from persistent storage
       await Promise.all([initSettingsStore(), initOnboardingStore()])
-      void prefetchModelRegistry()
 
       const remoteConfig = await remote
         .getRemoteConfig('setting_chatboxai_first')
