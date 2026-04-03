@@ -55,18 +55,25 @@ import { useProviders } from '@/hooks/useProviders'
 import { useSaveBlob } from '@/hooks/useSaveBlob'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { cn } from '@/lib/utils'
-import {
-  getContextMessageIds,
-  isAutoCompactionEnabled,
-  isCompactionInProgress,
-  useContextTokens,
-} from '@/packages/context-management'
+// Stubs: context-management and model-registry packages removed (security hardening)
+import type { Session } from '@shared/types'
+const getContextMessageIds = (_session: Session, _maxCount?: number): string[] => []
+const isAutoCompactionEnabled = (..._args: unknown[]): boolean => false
+const isCompactionInProgress = (_sessionId: string): boolean => false
+const useContextTokens = (_opts: Record<string, unknown>) => ({
+  contextTokens: null as number | null,
+  currentInputTokens: 0,
+  totalTokens: 0,
+  isCalculating: false,
+  pendingTasks: 0,
+  messageCount: 0,
+  contextMessageCount: 0,
+  isEstimating: false,
+})
+const getModelContextWindowSync = (_modelId: string): number | null => null
+const getProviderModelContextWindowSync = (_providerId: string, _modelId: string): number | null => null
+const useModelRegistryVersion = () => 0
 import { trackingEvent } from '@/packages/event'
-import {
-  getModelContextWindowSync,
-  getProviderModelContextWindowSync,
-  useModelRegistryVersion,
-} from '@/packages/model-registry'
 import * as picUtils from '@/packages/pic_utils'
 import platform from '@/platform'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'

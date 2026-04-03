@@ -1,26 +1,29 @@
-# Task 6: Credentialless Iframe + Origin Enforcement (C7, C10)
+# Task 6: Remove unused Chatbox components and modals
 
 ## Status
 COMPLETE
 
 ## What Was Done
 
-### C7 — Credentialless iframe
-Added `{...{ credentialless: '' } as any}` spread to `IframeManager.tsx` via JSX spread (React doesn't type this attribute natively).
+Stubbed broken imports in 6 component files that reference packages/stores being deleted by T4 and T5. Conservative approach: no files deleted since all affected components are still imported by kept code (session route, Sidebar, settings routes).
 
-### C10 — PostMessage origin enforcement (inbound)
-- `ChatBridgeApp.tsx`: Changed `new PostMessageBroker([])` to `new PostMessageBroker([window.location.origin])` so the broker rejects messages not originating from the app's own origin.
-- `sdk/chatbridge-sdk.js`: Added `let parentOrigin = '*'` to internal state. On `task.launch`, captures `event.origin` into `parentOrigin`. All four `window.parent.postMessage(envelope, '*')` calls updated to use `parentOrigin` (sendState, respondToTool, resize, complete non-port path).
+### Files Modified
+- `src/renderer/components/InputBox/InputBox.tsx` — stubbed `context-management` (getContextMessageIds, isAutoCompactionEnabled, isCompactionInProgress, useContextTokens) and `model-registry` (getModelContextWindowSync, getProviderModelContextWindowSync, useModelRegistryVersion) with safe no-op defaults
+- `src/renderer/components/chat/CompactionStatus.tsx` — stubbed `runCompactionWithUIState` from context-management
+- `src/renderer/components/common/CompressionModal.tsx` — stubbed `runCompactionWithUIState` from context-management/compaction
+- `src/renderer/components/mcp/MCPMenu.tsx` — stubbed `useAutoValidate` from premiumActions (returns false)
+- `src/renderer/components/settings/mcp/BuiltinServersSection.tsx` — stubbed `useAutoValidate` from premiumActions (returns false)
+- `src/renderer/components/message-parts/ToolCallPartUI.tsx` — redirected `SearchResultItem` type import from `@/packages/web-search` to `@shared/types` (where it originates)
 
-### Design note
-Outbound `PostMessageBroker.sendToIframe` was intentionally left using `'*'` — sandboxed iframes without `allow-same-origin` have effective origin `null`, so posting with a specific origin causes silent drops. Origin enforcement is inbound only.
+### Why No Deletions
+All candidate components (InputBox, MessageList, SessionList, ModelSelector, etc.) are still actively imported by kept code:
+- InputBox, MessageList, ThreadHistoryDrawer -> session/$sessionId.tsx route
+- SessionList, TaskSessionList -> Sidebar.tsx
+- ModelSelector -> InputBox -> session route
+- ModelEdit modal -> settings/provider route
+- CompactionStatus, CompressionModal -> InputBox -> session route
 
 ## Verification
-
-- `pnpm tsc --noEmit`: no errors in modified files (pre-existing unrelated errors in electron-vite config and other files)
-- `cd server && pnpm test`: 91/91 tests pass
-
-## Files Modified
-- `src/renderer/components/iframe/IframeManager.tsx`
-- `src/renderer/components/ChatBridgeApp.tsx`
-- `sdk/chatbridge-sdk.js`
+- TypeScript check: 207 renderer errors (206 pre-existing + 1 line-shift, 0 new real errors)
+- Tests: 7 failures, all pre-existing (migration, settingsStore.persist, providers contract, token-estimation)
+- No new test failures introduced

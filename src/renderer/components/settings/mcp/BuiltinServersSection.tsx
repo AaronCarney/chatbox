@@ -3,7 +3,8 @@ import type { FC } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToggleMCPServer } from '@/hooks/mcp'
 import { BUILTIN_MCP_SERVERS, type BuildinMCPServerConfig } from '@/packages/mcp/builtin'
-import { useAutoValidate } from '@/stores/premiumActions'
+// Stub: premiumActions store removed (security hardening)
+const useAutoValidate = () => false
 import { useMcpSettings } from '@/stores/settingsStore'
 
 const ServerCard: FC<{

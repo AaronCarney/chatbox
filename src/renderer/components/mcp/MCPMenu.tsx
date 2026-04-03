@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { useMCPServerStatus, useToggleMCPServer } from '@/hooks/mcp'
 import { navigateToSettings } from '@/modals/Settings'
 import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
-import { useAutoValidate } from '@/stores/premiumActions'
+// Stub: premiumActions store removed (security hardening)
+const useAutoValidate = () => false
 import { useMcpSettings } from '@/stores/settingsStore'
 import { ScalableIcon } from '../common/ScalableIcon'
 import MCPStatus from './MCPStatus'

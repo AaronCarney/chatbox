@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next'
 
 import { formatElapsedTime, useThinkingTimer } from '@/hooks/useThinkingTimer'
 import { getToolName } from '@/packages/tools'
-import type { SearchResultItem } from '@/packages/web-search'
+import type { SearchResultItem } from '@shared/types'
 import { ScalableIcon } from '../common/ScalableIcon'
 
 // ─── Tool Icon Mapping ──────────────────────────────────────────────
