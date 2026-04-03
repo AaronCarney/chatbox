@@ -17,8 +17,8 @@
         fen: game.fen(),
         turn: game.turn(),
         moveCount: game.history().length,
-        isCheck: game.inCheck(),
-        isGameOver: game.isGameOver(),
+        isCheck: game.in_check(),
+        isGameOver: game.game_over(),
         history: game.history().slice(-5),
       };
     },

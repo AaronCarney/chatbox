@@ -32,8 +32,6 @@ function setupCanvasListener() {
     const result = GoEngine.placeStone(engine, pos.x, pos.y);
 
     if (result.success !== false && !result.error) {
-      engine.turn = engine.turn === 1 ? 2 : 1;
-      engine.passCount = 0;
       GoBoard.render(engine);
       GoBoard.updateStatus(engine);
       ChatBridge.sendState(GoEngine.getState(engine));
@@ -61,8 +59,6 @@ ChatBridge.on('toolInvoke', function(payload, requestId) {
       if (result.error) {
         ChatBridge.respondToTool(requestId, { error: result.error });
       } else {
-        engine.turn = engine.turn === 1 ? 2 : 1;
-        engine.passCount = 0;
         GoBoard.render(engine);
         GoBoard.updateStatus(engine);
         ChatBridge.respondToTool(requestId, { success: true, state: GoEngine.getState(engine) });

@@ -18,7 +18,7 @@
       ChatBridge.sendState(ChessEngine.getState(game));
 
       // Check if game is over after the move
-      if (game.isGameOver()) {
+      if (game.game_over()) {
         ChatBridge.complete('success', {
           fen: game.fen(),
           result: 'Game Over',
@@ -48,7 +48,7 @@
           ChatBridge.respondToTool(requestId, ChessEngine.getState(game));
 
           // Check if game is over after the move
-          if (game.isGameOver()) {
+          if (game.game_over()) {
             ChatBridge.complete('success', {
               fen: game.fen(),
               result: 'Game Over',

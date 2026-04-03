@@ -52,7 +52,7 @@ window.GoBoard = {
     const radius = cellSize * 0.45;
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
-        const cell = game.board[y][x];
+        const cell = game.board[y * size + x];
         if (!cell) continue;
         const cx = (x + 1) * cellSize;
         const cy = (y + 1) * cellSize;
@@ -91,6 +91,6 @@ window.GoBoard = {
       statusEl.textContent = game.turn === 1 ? "Black's turn" : "White's turn";
     }
     capturesEl.textContent =
-      `Black captured: ${game.captures.black} | White captured: ${game.captures.white}`;
+      `Black captured: ${game.captures[1] || 0} | White captured: ${game.captures[2] || 0}`;
   },
 };
