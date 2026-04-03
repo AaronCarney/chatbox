@@ -44,7 +44,7 @@ export function ChatBridgeApp() {
   useEffect(() => {
     fetchApps().then(setAvailableApps).catch(console.error)
 
-    const broker = new PostMessageBroker([])
+    const broker = new PostMessageBroker([window.location.origin])
     brokerRef.current = broker
 
     broker.on('tool.result', (data: unknown) => {

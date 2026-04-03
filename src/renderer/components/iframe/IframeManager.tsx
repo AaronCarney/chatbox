@@ -22,6 +22,7 @@ export function IframeManager({ appId, iframeUrl, isActive, onRef }: IframeManag
       ref={iframeRef}
       src={iframeUrl}
       sandbox="allow-scripts"
+      {...{ credentialless: '' } as any}
       allow=""
       referrerPolicy="no-referrer"
       loading="lazy"

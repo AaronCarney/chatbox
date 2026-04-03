@@ -1,48 +1,47 @@
-# Task 4: Redis Session Manager — Summary
+# Task 4: Dynamic System Prompt + PLATFORM_TOOLS Descriptions (I3)
 
 ## Status
 COMPLETE
 
-## Deliverables
+## Changes Made
 
-### 1. Dependencies Added
-- ioredis — added to `server/package.json` for future Redis integration
+### 1. Test Implementation
+Added failing test to `server/tests/services/llm.test.ts`:
+- Test: `injects active apps and current app into system prompt`
+- Verifies system prompt includes `ACTIVE APPS: Chess, Go, Spotify`
+- Verifies system prompt includes `CURRENT APP: chess`
 
-### 2. Tests Implemented
-File: `server/tests/services/session.test.ts`
-- 8 test cases covering:
-  - `generatePseudonym()`: 16-char hex, deterministic per user+date, varies by user
-  - `generateAppToken()`: 32-char hex, deterministic per pseudonym+appId, varies by both inputs
-  - `sessionKey()`: returns session:-prefixed Redis key
+### 2. buildMessages Function Updated
+Modified `server/src/services/llm.ts`:
+- Added `apps: Array<{ id: string; name: string }> = []` parameter
+- Added `activeAppId: string | null = null` parameter
+- Injected app context into system prompt:
+  - When apps present: `ACTIVE APPS: {app names}`
+  - Always includes: `CURRENT APP: {activeAppId || 'none'}`
+- Maintains backward compatibility with default parameters
 
-All tests pass (9/9 total with existing health test).
+### 3. Call Site Updated
+Modified `server/src/routes/chat.ts`:
+- Changed: `buildMessages(trimmed, tools)`
+- To: `buildMessages(trimmed, tools, apps, activeAppId)`
+- Apps already loaded in the route handler, passed through directly
 
-### 3. Implementation
-File: `server/src/services/session.ts`
-
-**SessionManager class:**
-```
-- Constructor: accepts { secret, ttlSeconds }
-- generatePseudonym(userId): HMAC-SHA256(secret, userId:YYYY-MM-DD), sliced to 16 chars
-- generateAppToken(pseudonym, appId): HMAC-SHA256(secret, pseudonym:appId), sliced to 32 chars
-- sessionKey(pseudonym): returns 'session:' + pseudonym
-```
-
-**Design Notes:**
-- Uses Node.js built-in `crypto.createHmac()` — no additional dependencies needed for hashing
-- Pseudonym determinism tied to calendar date (YYYY-MM-DD) — same user, same day → same pseudonym
-- Different date → different pseudonym (privacy-per-session)
-- App tokens are app-specific — same pseudonym can't be reused across apps
+### 4. PLATFORM_TOOLS Descriptions Added
+Enhanced `server/src/services/tools.ts` with descriptions:
+- `launch_app`: "Launch a third-party app (chess, go, spotify) in the chat. Use when the student asks to play a game or use an app."
+- `get_app_state`: "Get the current state of an active app (e.g. chess board position, game score). Use when the student asks about what is happening in the app."
+- `get_available_apps`: "List all available third-party apps the student can use. Use when the student asks what apps or games are available."
 
 ## Testing
 - TDD workflow: tests written first, then implementation
-- All tests pass: `pnpm test` returns 9/9
-- No breaking changes to existing tests
+- All 88 tests passing (11 test files)
+- New test verifies app context injection in system prompt
 
-## Files Changed
-- `server/src/services/session.ts` — new implementation
-- `server/tests/services/session.test.ts` — new test suite
-- `server/package.json` — ioredis dependency
+## Files Modified
+- `server/src/services/llm.ts`
+- `server/src/services/tools.ts`
+- `server/src/routes/chat.ts`
+- `server/tests/services/llm.test.ts`
 
 ## Commit
-`feat: session manager with HMAC pseudonyms` (c30a9ab)
+`feat: dynamic system prompt + platform tool descriptions (I3)` (f0d09fb)

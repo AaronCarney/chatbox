@@ -62,6 +62,19 @@ describe('stripPii', () => {
     });
   });
 
+  describe('address patterns', () => {
+    it('strips street addresses', () => {
+      expect(stripPii('I live at 123 Main Street')).toBe('I live at [REDACTED_ADDRESS]');
+      expect(stripPii('Send to 456 Oak Ave')).toBe('Send to [REDACTED_ADDRESS]');
+      expect(stripPii('My address is 789 Pine Boulevard')).toBe('My address is [REDACTED_ADDRESS]');
+    });
+
+    it('handles multiple address formats', () => {
+      const text = '123 Oak Street and 456 Pine Avenue';
+      expect(stripPii(text)).toBe('[REDACTED_ADDRESS] and [REDACTED_ADDRESS]');
+    });
+  });
+
   describe('edge cases', () => {
     it('passes through text without PII unchanged', () => {
       const text = 'This is clean text with no sensitive information';

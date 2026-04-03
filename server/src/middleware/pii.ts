@@ -12,6 +12,13 @@ export function stripPii(text: string): string {
   
   // Format: (XXX) XXX-XXXX or (XXX) XXX.XXXX
   result = result.replace(/\(\d{3}\)\s?\d{3}[-.]?\d{4}/g, '[REDACTED_PHONE]');
-  
+
+  // Address pattern: number + street name + street type
+  // Uses non-greedy match for street name to avoid consuming "and" or other words
+  result = result.replace(
+    /\b\d+\s+[\w][\w\s]*?(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct)\b/gi,
+    '[REDACTED_ADDRESS]'
+  );
+
   return result;
 }

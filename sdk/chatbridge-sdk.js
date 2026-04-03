@@ -10,6 +10,7 @@
   // Internal state
   let appId = null
   let completionPort = null
+  let parentOrigin = '*'
   const handlers = {}
 
   /**
@@ -71,6 +72,9 @@
       if (data.payload && data.payload.appId) {
         appId = data.payload.appId
       }
+      if (event.origin) {
+        parentOrigin = event.origin
+      }
 
       // Call registered 'launch' handler
       const handlerName = wireToHandlerName('task.launch')
@@ -129,7 +133,7 @@
      */
     sendState(state) {
       const envelope = createEnvelope('app.state', state)
-      window.parent.postMessage(envelope, '*')
+      window.parent.postMessage(envelope, parentOrigin)
     },
 
     /**
@@ -147,7 +151,7 @@
       if (completionPort) {
         completionPort.postMessage(envelope)
       } else {
-        window.parent.postMessage(envelope, '*')
+        window.parent.postMessage(envelope, parentOrigin)
       }
     },
 
@@ -158,7 +162,7 @@
      */
     respondToTool(requestId, result) {
       const envelope = createEnvelope('tool.result', result, { requestId })
-      window.parent.postMessage(envelope, '*')
+      window.parent.postMessage(envelope, parentOrigin)
     },
 
     /**
@@ -175,7 +179,7 @@
      */
     resize(height) {
       const envelope = createEnvelope('app.resize', { height })
-      window.parent.postMessage(envelope, '*')
+      window.parent.postMessage(envelope, parentOrigin)
     },
   }
 })()

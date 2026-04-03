@@ -128,6 +128,26 @@ describe('POST /api/chat', () => {
     expect(stripPii).toHaveBeenCalledWith('My email is test@example.com');
   });
 
+  it('strips PII from all message roles, not just user', async () => {
+    const { stripPii } = await import('../../src/middleware/pii.js');
+    const { streamChat } = await import('../../src/services/llm.js');
+    vi.mocked(streamChat).mockImplementation(async function* () {
+      yield { choices: [{ delta: { content: 'ok' } }] };
+    });
+
+    await request(app)
+      .post('/api/chat')
+      .send({
+        messages: [
+          { role: 'user', content: 'My email is test@example.com' },
+          { role: 'assistant', content: 'You said test@example.com' },
+        ],
+      });
+
+    expect(vi.mocked(stripPii).mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(stripPii).toHaveBeenCalledWith('You said test@example.com');
+  });
+
   it('calls getApps and buildToolsForTurn', async () => {
     const { getApps } = await import('../../src/db/client.js');
     const { buildToolsForTurn } = await import('../../src/services/tools.js');

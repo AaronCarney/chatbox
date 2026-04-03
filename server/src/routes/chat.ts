@@ -27,9 +27,9 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     const tools = buildToolsForTurn(apps, activeAppId);
     log.debug({ appCount: apps.length, toolCount: tools.length }, 'tools built');
 
-    // Strip PII from all user message content
+    // Strip PII from all message roles with string content
     const sanitizedMessages = messages.map((msg: { role: string; content: string }) => {
-      if (msg.role === 'user') {
+      if (typeof msg.content === 'string') {
         return { ...msg, content: stripPii(msg.content) };
       }
       return msg;
