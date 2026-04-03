@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 type ExecutionState =
   | 'idle'
@@ -27,7 +27,7 @@ export function useToolExecution() {
     setCurrentToolCall(null);
   };
 
-  const handleToolCall = (tc: ToolCall): Promise<any> => {
+  const handleToolCall = useCallback((tc: ToolCall): Promise<any> => {
     setState('tool_call_detected');
     setCurrentToolCall(tc);
 
@@ -38,16 +38,16 @@ export function useToolExecution() {
     setState('tool_executing');
 
     return promise;
-  };
+  }, []);
 
-  const resolveToolCall = (result: any) => {
+  const resolveToolCall = useCallback((result: any) => {
     if (pendingResolve.current) {
       pendingResolve.current(result);
     }
     setState('streaming_resumed');
     setCurrentToolCall(null);
     pendingResolve.current = null;
-  };
+  }, []);
 
   return {
     state,

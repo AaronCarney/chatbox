@@ -15,6 +15,13 @@ export function useIframeApps() {
     setApps((prevApps) => {
       const newApps = new Map(prevApps)
 
+      // If this app is already active, just update lastUsed — don't reload
+      const existing = newApps.get(appId)
+      if (existing && existing.status === 'active') {
+        newApps.set(appId, { ...existing, lastUsed: Date.now() })
+        return newApps
+      }
+
       // Set current active app to hidden
       for (const [id, app] of newApps) {
         if (app.status === 'active') {
