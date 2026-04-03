@@ -4,7 +4,7 @@ import {
   buildAttachmentWrapperPrefix,
   buildAttachmentWrapperSuffix,
   PREVIEW_LINES,
-} from '@/packages/context-management/attachment-payload'
+} from '@/packages/attachment-payload'
 import storage from '@/storage'
 import * as chatStore from '@/stores/chatStore'
 import { computationQueue } from './computation-queue'

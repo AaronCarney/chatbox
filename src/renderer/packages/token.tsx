@@ -6,7 +6,7 @@ import {
   buildAttachmentWrapperPrefix,
   buildAttachmentWrapperSuffix,
   MAX_INLINE_FILE_LINES,
-} from './context-management/attachment-payload'
+} from './attachment-payload'
 import {
   estimateDeepSeekTokens,
   estimateTokens,
