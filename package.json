@@ -9,6 +9,9 @@
   "private": true,
   "description": "A desktop client for multiple cutting-edge AI models",
   "scripts": {
+    "dev": "concurrently \"cd server && pnpm dev\" \"vite\"",
+    "dev:server": "cd server && pnpm dev",
+    "dev:client": "vite",
     "generate:model-snapshot": "pnpm exec tsx scripts/generate-model-snapshot.ts",
     "test": "vitest run",
     "test:ui": "vitest --ui",
@@ -25,7 +28,6 @@
     "check:ci": "biome ci",
     "prepare": "node -e \"try { require('husky') } catch(e) { process.exit(0) }\" && husky || true",
     "translate": "i18next && node script/translate.mjs",
-    "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
@@ -143,7 +145,7 @@
     "clsx": "^2.0.0",
     "cmdk": "^0.2.0",
     "compare-versions": "^6.1.1",
-    "concurrently": "^8.1.0",
+    "concurrently": "^9.1.2",
     "copy-to-clipboard": "^3.3.3",
     "core-js": "^3.34.0",
     "cross-env": "^7.0.3",
