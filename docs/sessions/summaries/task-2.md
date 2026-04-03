@@ -1,28 +1,27 @@
-# Task 2: Strip Electron, Web-Only Vite Build
+# Task 2: Fix SSE Client Parsing + Tool Call Shape + Broker Payload Bug (C1)
 
-## What Was Built
+## What Was Fixed
 
-Removed all Electron infrastructure from the Chatbox fork, leaving a pure web SPA powered by a standard Vite config. The renderer code under `src/renderer/` is fully intact.
+Three silent protocol mismatches that caused all streaming, tool dispatch, and iframe communication to fail:
 
-## Files Created or Modified
+1. **SSE parser** (`useChat.ts`): Replaced OpenAI `choices[0].delta` parsing with server wire format — `chunk.type === 'token'` for text tokens, `chunk.type === 'tool_call_start'` for tool calls. Removed the `toolCallsMap` accumulation (server sends complete tool call objects, not streamed deltas).
 
-- `vite.config.ts` — new, replaces `electron.vite.config.ts`; renderer-only config with TanStackRouterVite, react, postcss for tailwind
-- `src/renderer/platform/index.ts` — simplified to always return `WebPlatform()` (removes Electron detection)
-- `package.json` — removed electron deps/devDeps, replaced scripts with `dev/build/preview`
+2. **Tool call shape** (`ChatBridgeApp.tsx`): Fixed destructuring from `tc.function?.name` / `tc.function?.arguments` (OpenAI nested format) to `tc.name` / `tc.arguments` (server flat format). Also wired `activeAppId` and `authToken` through to `sendMessage`.
 
-## Files Deleted
+3. **Broker payload** (`PostMessageBroker.ts` line 28): Fixed `const { type, data } = event.data` → `const { type, payload } = event.data`. SDK envelopes use `payload` not `data` — every handler was receiving `undefined`.
 
-- `electron.vite.config.ts`
-- `electron-builder.yml`
-- `src/main/` (entire directory — 22 files)
-- `src/preload/index.ts`
-- `src/renderer/platform/desktop_platform.ts`
-- `resources/` (5 image files)
+## Files Modified
 
-## Test Count
+- `src/renderer/hooks/useChat.ts` — new `sendMessage` signature with `opts` object; server wire format parsing
+- `src/renderer/services/api.ts` — `StreamOptions` interface; `streamChat` accepts `opts`; `fetchApps` accepts optional `authToken`; removed `getAuthHeaders` function; added `activeAppId` to `ChatRequest`
+- `src/renderer/components/ChatBridgeApp.tsx` — pass `{ tools, activeAppId, authToken }` to `sendMessage`; flat tool call destructuring
+- `src/renderer/components/iframe/PostMessageBroker.ts` — `data` → `payload` in destructure and handler calls
 
-0 tests added/modified. Pre-existing failures: 6 test files / 7 tests (unrelated to this task — confirmed by running tests on base commit).
+## Test Results
+
+- Server: 87/87 passing (no regressions)
+- TypeScript: 0 new errors in owned files (pre-existing errors in unrelated files unchanged)
 
 ## Deviations
 
-- Task specified `tailwindcss` import from `@tailwindcss/vite` but project uses tailwindcss v3 with postcss (v4 package not installed). Used postcss path instead — functionally equivalent for this stack.
+None.
