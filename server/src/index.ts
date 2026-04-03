@@ -10,6 +10,7 @@ import { appsRouter } from './routes/apps.js';
 import { chatRouter } from './routes/chat.js';
 import { oauthRouter } from './routes/oauth.js';
 import { spotifyRouter } from './routes/spotify.js';
+import { seed } from './db/seed.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -42,6 +43,7 @@ const PORT = process.env.PORT || 3001;
 
 let server: any;
 if (process.env.NODE_ENV !== 'test') {
+  seed().then(() => logger.info('database seeded')).catch(e => logger.error({ err: e }, 'seed failed'));
   server = app.listen(PORT, () => {
     logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'server started');
   });

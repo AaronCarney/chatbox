@@ -1,0 +1,22 @@
+// DOS game catalog — each entry maps to files in games/ and covers/
+window.DOS_GAMES = [
+  { id: 'oregon-trail',  name: 'Oregon Trail Deluxe',  category: 'educational', cover: 'png' },
+  { id: 'civilization',  name: 'Civilization',          category: 'strategy',    cover: 'jpg' },
+  { id: 'simcity2000',   name: 'SimCity 2000',          category: 'strategy',    cover: 'png' },
+  { id: 'doom2',         name: 'Doom II',               category: 'action',      cover: 'png' },
+  { id: 'zelda',         name: 'Zelda Classic',         category: 'adventure',   cover: 'png' },
+  { id: 'tetris',        name: 'Tetris',                category: 'puzzle',      cover: 'gif' },
+  { id: 'monopoly',      name: 'Monopoly Deluxe',       category: 'board',       cover: 'png' },
+  { id: 'catan',         name: 'Settlers of Catan',     category: 'board',       cover: 'png' },
+  { id: 'sargon-chess',  name: 'Sargon V Chess',        category: 'board',       cover: 'png' },
+  { id: 'cyrus-chess',   name: 'Cyrus Chess',           category: 'board',       cover: 'gif' },
+  { id: 'ez-go',         name: 'EZ-GO',                 category: 'board',       cover: 'png' },
+  { id: 'mahjong',       name: 'Mahjong',               category: 'puzzle',      cover: 'jpg' },
+  { id: 'pyramid',       name: 'Pyramid Solitaire',     category: 'cards',       cover: 'png' },
+  { id: 'solitaire',     name: 'Sol Devil Solitaire',   category: 'cards',       cover: 'png' },
+  { id: 'snakes-ladders',name: 'Snakes & Ladders',      category: 'board',       cover: 'png' },
+  { id: 'shuffle',       name: 'Shuffle',               category: 'puzzle',      cover: 'png' },
+  { id: 'soh-lo',        name: 'Soh-Lo Puzzles',        category: 'puzzle',      cover: 'jpg' },
+  { id: 'smb3',          name: 'Super Mario Bros 3',    category: 'action',      cover: 'png' },
+  { id: 'bible',         name: 'Bible Adventures',      category: 'educational', cover: 'jpg' },
+];

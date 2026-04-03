@@ -54,3 +54,4 @@ storybook-static
 .claude/worktrees/
 **/routeTree.gen.ts
 .env.sentry-build-plugin
+dosgames/

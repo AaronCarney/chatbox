@@ -161,6 +161,52 @@ export async function seed() {
     ]
   );
 
+  // DOS Arcade app
+  await query(
+    `INSERT INTO apps (id, name, description_for_model, iframe_url, auth_type, tools)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (id) DO UPDATE SET
+       name = EXCLUDED.name,
+       description_for_model = EXCLUDED.description_for_model,
+       iframe_url = EXCLUDED.iframe_url,
+       auth_type = EXCLUDED.auth_type,
+       tools = EXCLUDED.tools`,
+    [
+      'dos',
+      'DOS Arcade',
+      'A collection of 19 classic DOS games including Oregon Trail, Civilization, SimCity 2000, Tetris, Chess, Mahjong, and more. Students can browse the catalog or launch a specific game by ID. Games run in a DOS emulator in the browser.',
+      '/apps/dos/index.html',
+      'none',
+      JSON.stringify([
+        {
+          name: 'list_games',
+          description: 'List all available DOS games with their IDs and categories',
+          input_schema: {
+            type: 'object',
+            properties: {},
+            required: [],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: 'launch_game',
+          description: 'Launch a specific DOS game by its ID',
+          input_schema: {
+            type: 'object',
+            properties: {
+              game_id: {
+                type: 'string',
+                description: 'Game ID (e.g., oregon-trail, tetris, civilization)',
+              },
+            },
+            required: ['game_id'],
+            additionalProperties: false,
+          },
+        },
+      ]),
+    ]
+  );
+
   // Spotify app
   await query(
     `INSERT INTO apps (id, name, description_for_model, iframe_url, auth_type, oauth_config, tools)
