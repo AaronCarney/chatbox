@@ -44,6 +44,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createRootRoute, Outlet, useLocation } from '@tanstack/react-router'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useEffect, useMemo, useRef } from 'react'
+import { ClerkProvider, SignedIn, SignedOut, SignIn, UserButton } from '@clerk/clerk-react'
 import SettingsModal, { navigateToSettings } from '@/modals/Settings'
 import { prefetchModelRegistry } from '@/packages/model-registry'
 import { getOS } from '@/packages/navigator'
@@ -252,10 +253,12 @@ function Root() {
   }, [needRoomForMacWindowControls])
 
   return (
-    <Box className="box-border App relative" spellCheck={spellCheck} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-      <BackgroundImageOverlay />
+    <>
+      <SignedIn>
+        <Box className="box-border App relative" spellCheck={spellCheck} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <BackgroundImageOverlay />
       {platform.type === 'desktop' && (getOS() === 'Windows' || getOS() === 'Linux') && <ExitFullscreenButton />}
-      <Grid container className="h-full relative z-[1]">
+        <Grid container className="h-full relative z-[1]">
         <Sidebar />
         <Box
           className="h-full w-full"
@@ -301,7 +304,14 @@ function Root() {
       {/* <WelcomeDialog /> */}
       <Toasts /> {/* mui */}
       <SettingsModal />
-    </Box>
+        </Box>
+      </SignedIn>
+      <SignedOut>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw' }}>
+          <SignIn />
+        </div>
+      </SignedOut>
+    </>
   )
 }
 
@@ -584,11 +594,18 @@ export const Route = createRootRoute({
     }, [fontSize])
     const mantineTheme = useMemo(() => creteMantineTheme(), [])
 
+    const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+
+    if (!publishableKey) {
+      throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY')
+    }
+
     return (
-      <MantineProvider
-        theme={mantineTheme}
-        defaultColorScheme={_theme === Theme.Dark ? 'dark' : _theme === Theme.Light ? 'light' : 'auto'}
-      >
+      <ClerkProvider publishableKey={publishableKey}>
+        <MantineProvider
+          theme={mantineTheme}
+          defaultColorScheme={_theme === Theme.Dark ? 'dark' : _theme === Theme.Light ? 'light' : 'auto'}
+        >
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <NiceModal.Provider>
@@ -597,7 +614,8 @@ export const Route = createRootRoute({
             </ErrorBoundary>
           </NiceModal.Provider>
         </ThemeProvider>
-      </MantineProvider>
+        </MantineProvider>
+      </ClerkProvider>
     )
   },
 })

@@ -13,6 +13,7 @@ import {
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { UserButton } from '@clerk/clerk-react'
 import { useTranslation } from 'react-i18next'
 import Divider from './components/common/Divider'
 import { ScalableIcon } from './components/common/ScalableIcon'
@@ -172,11 +173,14 @@ export default function Sidebar() {
             {FORCE_ENABLE_DEV_PAGES && <ThemeSwitchButton size="xs" />}
           </Flex>
 
-          <Tooltip label={t('Collapse')} openDelay={1000} withArrow>
-            <ActionIcon variant="subtle" color="chatbox-tertiary" size={20} onClick={() => setShowSidebar(false)}>
-              <IconLayoutSidebarLeftCollapse />
-            </ActionIcon>
-          </Tooltip>
+          <Flex align="center" gap="xs">
+            <UserButton />
+            <Tooltip label={t('Collapse')} openDelay={1000} withArrow>
+              <ActionIcon variant="subtle" color="chatbox-tertiary" size={20} onClick={() => setShowSidebar(false)}>
+                <IconLayoutSidebarLeftCollapse />
+              </ActionIcon>
+            </Tooltip>
+          </Flex>
         </Flex>
 
         {featureFlags.taskMode && (
