@@ -13,7 +13,7 @@ export function buildMessages(
   let systemContent = SYSTEM_PROMPT;
 
   if (apps.length > 0) {
-    systemContent += `\n\nACTIVE APPS: ${apps.map(a => a.name).join(', ')}`;
+    systemContent += `\n\nAVAILABLE APPS (always mention ALL of these when asked what's available):\n${apps.map(a => `- ${a.name} (id: ${a.id})`).join('\n')}`;
   }
 
   systemContent += `\nCURRENT APP: ${activeAppId || 'none'}`;
