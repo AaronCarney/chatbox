@@ -5,10 +5,10 @@
 
 ## Application Context
 - ChatBridge — K-12 AI chat platform with third-party app integration (chess, go, spotify). GauntletAI take-home sprint, 1-week deadline (final Sunday 2026-04-06 11:59 PM CT).
-- Current goal: Deployment phase — Railway + Vercel live, remaining: GitLab push, demo video, cost analysis.
+- Current goal: Security hardening — remove all Chatbox direct-LLM paths from frontend. Then DOS emulator + remaining deliverables.
 
 ## Position
-- Project: ChatBridge, repo: `/home/context/projects/chatbridge` (symlinked at `projects/chatbridge`), branch: `main`, phase: **deployment** (Railway + Vercel live)
+- Project: ChatBridge, repo: `/home/context/projects/chatbridge` (symlinked at `projects/chatbridge`), branch: `main`, phase: **spec → implementation** (security hardening)
 
 ## L2 Context
 - Original L2 plan (T1-T38): COMPLETE
@@ -18,11 +18,29 @@
 ## Task State (JSON)
 ```json
 {
-  "tasks_done": ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11","T12","T13","T14","T15","T16"],
-  "tasks_remaining": [],
-  "test_baseline": {"suite": "vitest", "passing": 99, "files": 11},
-  "planning_status": "complete",
-  "remediation_status": "ALL 16 TASKS COMPLETE — 99 tests passing"
+  "tasks_done": [
+    "REMEDIATION-ALL",
+    "DEPLOY-RAILWAY",
+    "DEPLOY-VERCEL",
+    "DEPLOY-DNS",
+    "DEPLOY-DB-SCHEMA-SEED",
+    "PORTFOLIO-PAGE",
+    "CHESS-GO-BUGFIX",
+    "CHESS-GO-QOL",
+    "APPS-SERVED-FROM-VERCEL",
+    "IFRAME-URL-FIX",
+    "BROKER-RECREATION-FIX",
+    "SECURITY-HARDENING-PLAN"
+  ],
+  "tasks_remaining": [
+    {"id": "SECURITY-SPEC", "description": "Write formal spec for security hardening via /shape-spec — user requested spec phase before execution"},
+    {"id": "SECURITY-HARDENING", "description": "Execute L2 plan at docs/plans/2026-04-03-security-hardening-l2.md — 8 tasks, 4 waves. Removes all Chatbox direct-LLM paths."},
+    {"id": "DOS-EMULATOR", "description": "Set up js-dos emulator shell + game bundles. User collecting .zip files from Internet Archive."},
+    {"id": "GITLAB-PUSH", "description": "git push gitlab main --force (needs SSH from user terminal)"},
+    {"id": "DEMO-VIDEO", "description": "3-5 min demo video (user records)"},
+    {"id": "COST-ANALYSIS", "description": "Update docs/cost-analysis.md with actual dev spend"}
+  ],
+  "test_baseline": {"suite": "vitest", "passing": 99, "files": 11}
 }
 ```
 
@@ -34,17 +52,29 @@
 - **Env vars set:** Railway (OPENAI_API_KEY, CLERK keys, SPOTIFY_CLIENT_ID, DATABASE_URL, SESSION_SECRET, NODE_ENV). Vercel (VITE_API_URL, VITE_CLERK_PUBLISHABLE_KEY).
 
 ## What's Next
-1. ~~Deploy to Railway~~ DONE
-2. ~~Deploy frontend to Vercel~~ DONE
-3. ~~Cloudflare DNS~~ DONE
-4. ~~Portfolio page~~ DONE — committed + deployed to aaroncarney.me
-5. ~~Chess/Go bug fixes + QoL~~ DONE — undo, promotion picker, coords, invalid feedback
-6. ~~Apps served from Vercel~~ DONE — moved to `src/renderer/public/`, fixed iframe_url field
-7. **NEXT: Execute security hardening L2** — `docs/plans/2026-04-03-security-hardening-l2.md` (8 tasks, 4 waves). Removes all Chatbox direct-LLM paths. Use `parallel-plan-executor`.
-8. **DOS emulator setup** — user collecting game files from Internet Archive
-9. **Push to GitLab** — `git push gitlab main --force` (needs SSH from user's terminal)
-10. **Demo video** (3-5 min) — user records
-11. **Cost analysis** — `docs/cost-analysis.md` exists, may need updating with actual dev spend
+
+1. **NEXT: Write security hardening spec** — User requested `/shape-spec` before executing the L2 plan. Enter plan mode, run shape-spec skill, write formal spec to `agent-os/specs/`. This captures the design intent and acceptance criteria so multi-session execution doesn't drift.
+2. **Then: Execute security hardening L2** — `docs/plans/2026-04-03-security-hardening-l2.md` (8 tasks, 4 waves). Use `parallel-plan-executor`. The L2 plan is already written and reviewed — the spec phase adds the "why" and acceptance criteria, then execution begins.
+3. **DOS emulator setup** — user collecting .zip game files from Internet Archive (Oregon Trail Deluxe confirmed). Set up js-dos shell in `src/renderer/public/apps/dos/`, register games in DB seed.
+4. **Push to GitLab** — `git push gitlab main --force` (needs SSH from user terminal)
+5. **Demo video** (3-5 min) — user records
+6. **Cost analysis** — update `docs/cost-analysis.md`
+
+## Completed This Session
+- Railway deployed: `https://chatbox-production-d06b.up.railway.app` (health OK)
+- Vercel deployed: `https://chatbridge.aaroncarney.me`
+- Cloudflare DNS: chatbridge + api.chatbridge CNAMEs
+- DB schema + seed applied (3 apps: chess, go, spotify)
+- Env vars: OPENAI_API_KEY, CLERK keys, SPOTIFY_CLIENT_ID/SECRET, DATABASE_URL, SESSION_SECRET
+- Portfolio page committed + deployed to aaroncarney.me
+- Chess + Go: 5 bug fixes (API mismatch, board rendering, turn logic, last-move highlights, suicide rollback)
+- Chess + Go: 4 QoL features (undo for human moves only, promotion picker, coordinate labels, invalid move flash)
+- Apps moved to `src/renderer/public/` (Vite root is `src/renderer/`)
+- Fixed iframe_url field mapping (`iframe_url` not `url`)
+- Fixed broker recreation (useCallback for resolveToolCall/handleToolCall)
+- Fixed duplicate app launches (skip if already active)
+- Removed stale `.erb/dll/` from git
+- Wrote + refined L2 security hardening plan (8 tasks, 4 waves)
 
 ## Key Commits (remediation)
 ```
@@ -74,7 +104,24 @@ fd745a6 fix: pass tools + toolChoice to OpenAI API (critical bugfix + C4)
 - Deployment guide (website): `personal-website/app/(main)/portfolio/chatbridge/deployment/page.tsx`
 - Project CLAUDE.md: `CLAUDE.md`
 
+## Key Decisions This Session
+- **Games are HTML in sandboxed iframes** — matches project spec's iframe integration requirement
+- **Apps served from Vercel (frontend)**, not Railway (backend) — iframe src resolves against frontend origin
+- **Sidebar must be stripped for child safety** — Chatbox sidebar links to settings (API keys), image creator (direct model calls), copilots (custom prompts). All bypass the secured /api/chat pipeline. Agreed: keep sidebar shell with ChatBridge branding, UserButton, New Chat only.
+- **Security hardening is a proper L2** — not a quick fix. 24+ files with direct LLM calls need removal. Plan: `docs/plans/2026-04-03-security-hardening-l2.md`
+- **User requested spec phase before execution** — wants formal spec to prevent drift across sessions
+
+## Key Files
+- Security hardening L2 plan: `docs/plans/2026-04-03-security-hardening-l2.md`
+- Design spec: `docs/specs/2026-04-02-chatbridge-design.md`
+- Project instructions: `docs/project-instructions.pdf`
+- ChatBridgeApp (safe): `src/renderer/components/ChatBridgeApp.tsx`
+- Root layout (needs cleanup): `src/renderer/routes/__root.tsx`
+- Sidebar (needs rewrite): `src/renderer/Sidebar.tsx`
+- Game apps: `src/renderer/public/apps/{chess,go,spotify}/`
+- SDK: `src/renderer/public/sdk/chatbridge-sdk.js`
+
 ## Constraints/Blockers
 - GitLab push needs SSH from user's terminal (sandbox blocks)
-- Spotify client secret not yet provided — Spotify OAuth won't work without it
+- Vercel auto-deploy not connected for chatbridge — must run `vercel --prod` manually
 - Deadline: Sunday 2026-04-06 11:59 PM CT
