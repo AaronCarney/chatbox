@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { logger, requestLogger } from './lib/logger.js';
 import { clerkAuth, requireSession } from './middleware/auth.js';
 import { securityHeaders, generalLimiter, chatLimiter } from './middleware/rateLimit.js';
 import { healthRouter } from './routes/health.js';
@@ -15,6 +16,7 @@ const projectRoot = join(__dirname, '..', '..');
 
 const app = express();
 
+app.use(requestLogger());
 app.use(securityHeaders);
 app.use(cors());
 app.use(express.json());
@@ -45,7 +47,7 @@ const PORT = process.env.PORT || 3001;
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'server started');
   });
 }
 

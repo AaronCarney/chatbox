@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
+import { logger } from '../lib/logger.js';
 
 const oauthRouter = Router();
 
@@ -33,6 +34,7 @@ oauthRouter.get('/oauth/spotify/authorize', (req: Request, res: Response) => {
   authorizeUrl.searchParams.set('scope', scopes);
   authorizeUrl.searchParams.set('state', state);
 
+  logger.info({ sessionId: session_id }, 'spotify oauth: authorize redirect');
   res.redirect(302, authorizeUrl.toString());
 });
 
@@ -94,11 +96,13 @@ oauthRouter.get('/oauth/spotify/callback', async (req: Request, res: Response) =
 
     // Clear the state from tokenStore
     tokenStore.delete(state);
+    logger.info({ sessionId: session_id }, 'spotify oauth: token exchange complete');
 
     // Respond with HTML that closes the popup
     res.setHeader('Content-Type', 'text/html');
     res.send('<script>window.close()</script>');
   } catch (err) {
+    logger.error({ err }, 'spotify oauth: callback failed');
     const errorMessage = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: errorMessage });
   }

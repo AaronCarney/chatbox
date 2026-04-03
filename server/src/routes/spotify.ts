@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getSpotifyToken } from './oauth.js';
+import { logger } from '../lib/logger.js';
 
 const spotifyRouter = Router();
 
@@ -15,6 +16,7 @@ async function spotifyFetch(
   }
 
   const url = `https://api.spotify.com/v1${endpoint}`;
+  logger.debug({ endpoint, method: options?.method || 'GET' }, 'spotify api call');
   const response = await fetch(url, {
     ...options,
     headers: {

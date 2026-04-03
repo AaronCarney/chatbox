@@ -1,17 +1,13 @@
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import type { Request } from 'express';
 
 export const chatLimiter = rateLimit({
-  windowMs: 60000, // 1 minute
-  max: 20, // 20 requests per windowMs
-  keyGenerator: (req: Request) => {
-    const authUserId = (req as any).auth?.userId;
-    if (authUserId) {
-      return authUserId;
-    }
-    return ipKeyGenerator(req);
+  windowMs: 60000,
+  max: 20,
+  keyGenerator: (req) => {
+    return (req as any).auth?.userId || req.ip || 'unknown';
   },
+  validate: { ipKeyGenerator: false },
   standardHeaders: true,
   legacyHeaders: false,
 });

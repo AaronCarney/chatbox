@@ -5,11 +5,17 @@ import { validateToolResult, wrapWithDelimiters } from '../middleware/safety.js'
 import { trimHistory } from '../services/context.js';
 import { stripPii } from '../middleware/pii.js';
 import { getApps } from '../db/client.js';
+import { logger } from '../lib/logger.js';
 
 const chatRouter = Router();
 
 chatRouter.post('/chat', async (req: Request, res: Response) => {
   const { messages = [], activeAppId = null, toolResult } = req.body;
+  const requestId = Math.random().toString(36).slice(2, 10);
+  const log = logger.child({ requestId, activeAppId, messageCount: messages.length });
+  const start = Date.now();
+
+  log.info({ hasToolResult: !!toolResult }, 'chat request started');
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -19,6 +25,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     // Load apps and build tools for this turn
     const apps = await getApps();
     const tools = buildToolsForTurn(apps, activeAppId);
+    log.debug({ appCount: apps.length, toolCount: tools.length }, 'tools built');
 
     // Strip PII from all user message content
     const sanitizedMessages = messages.map((msg: { role: string; content: string }) => {
@@ -39,6 +46,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 
       const validation = validateToolResult(toolResult.data, schema);
       if (!validation.valid) {
+        log.warn({ toolName: toolResult.name, errors: validation.errors }, 'tool result validation failed');
         res.write(
           `data: ${JSON.stringify({ type: 'error', message: 'Tool result failed validation' })}\n\n`
         );
@@ -46,6 +54,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
         return;
       }
 
+      log.debug({ toolName: toolResult.name }, 'tool result validated');
       const wrapped = wrapWithDelimiters(activeAppId, toolResult.data);
       sanitizedMessages.push({
         role: 'tool',
@@ -73,6 +82,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 
       if (delta?.tool_calls?.length) {
         const tc = delta.tool_calls[0];
+        log.info({ toolCallId: tc.id, toolName: tc.function?.name }, 'tool call detected');
         res.write(
           `data: ${JSON.stringify({
             type: 'tool_call_start',
@@ -86,10 +96,12 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
+    log.info({ duration: `${Date.now() - start}ms` }, 'chat stream complete');
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    log.error({ err, duration: `${Date.now() - start}ms` }, 'chat request failed');
     res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
     res.end();
   }
