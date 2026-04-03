@@ -5,6 +5,7 @@ __pycache__/
 
 # Environment
 .env
+.env.test
 .env.local
 .env.*.local
 
@@ -12,6 +13,7 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+out/
 
 # IDE
 .vscode/
@@ -25,3 +27,30 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Vercel
+.vercel
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Electron
+.erb/dll
+release/app/dist
+release/build
+electron-builder.env
+
+# Misc
+*.pem
+tmp
+temp.md
+.sisyphus/
+.playwright-cli/
+node-compile-cache/
+*storybook.log
+storybook-static
+.gstack/
+.worktrees/
+.claude/worktrees/
+**/routeTree.gen.ts
+.env.sentry-build-plugin
