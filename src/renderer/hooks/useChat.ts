@@ -71,9 +71,13 @@ export function useChat() {
         )
 
         if (toolCalls.length > 0) {
-          // Add assistant message with tool_calls to history (OpenAI requires this
-          // before tool result messages in the next request)
-          appendMessage({ role: 'assistant', content: accumulated || '', tool_calls: toolCalls })
+          // Transform to OpenAI format: { id, type: "function", function: { name, arguments } }
+          const formatted = toolCalls.map(tc => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: { name: tc.name, arguments: tc.arguments || '{}' },
+          }))
+          appendMessage({ role: 'assistant', content: accumulated || '', tool_calls: formatted })
           return { type: 'tool_calls', toolCalls }
         }
 
@@ -109,7 +113,12 @@ export function useChat() {
         )
 
         if (toolCalls.length > 0) {
-          appendMessage({ role: 'assistant', content: accumulated || '', tool_calls: toolCalls })
+          const formatted = toolCalls.map(tc => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: { name: tc.name, arguments: tc.arguments || '{}' },
+          }))
+          appendMessage({ role: 'assistant', content: accumulated || '', tool_calls: formatted })
           return { type: 'tool_calls', toolCalls }
         }
 
