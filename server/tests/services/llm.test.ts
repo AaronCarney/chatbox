@@ -1,5 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { SYSTEM_PROMPT, buildMessages } from '../../src/services/llm.js';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { SYSTEM_PROMPT, buildMessages, streamChat } from '../../src/services/llm.js';
+
+// Mock OpenAI module
+const mockCreate = vi.fn();
+vi.mock('openai', () => ({
+  default: vi.fn(() => ({
+    chat: {
+      completions: {
+        create: mockCreate
+      }
+    }
+  }))
+}));
 
 describe('LLM Service', () => {
   describe('SYSTEM_PROMPT', () => {
@@ -72,6 +84,57 @@ describe('LLM Service', () => {
       const messages = buildMessages([], []);
       expect(messages.length).toBe(1); // just system
       expect(messages[0].role).toBe('system');
+    });
+  });
+
+  describe('streamChat', () => {
+    beforeEach(() => {
+      mockCreate.mockClear();
+      mockCreate.mockResolvedValue(
+        (async function* () {
+          yield { choices: [{ delta: { content: 'test' } }] };
+        })()
+      );
+    });
+
+    it('passes tools to OpenAI API when tools provided', async () => {
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+      const tools = [{ type: 'function', function: { name: 'test_tool' } }];
+
+      const gen = streamChat(messages, tools);
+      const result = await gen.next();
+
+      // Verify mock was called with tools in params
+      expect(mockCreate).toHaveBeenCalled();
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.tools).toEqual(tools);
+    });
+
+    it('accepts toolChoice as third parameter and passes to OpenAI API', async () => {
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+      const tools = [{ type: 'function', function: { name: 'test_tool' } }];
+      const toolChoice = 'test_tool';
+
+      const gen = streamChat(messages, tools, toolChoice);
+      const result = await gen.next();
+
+      // Verify mock was called with tool_choice in params
+      expect(mockCreate).toHaveBeenCalled();
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.tool_choice).toEqual(toolChoice);
+    });
+
+    it('does not include tools or tool_choice when tools array is empty', async () => {
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      const gen = streamChat(messages, []);
+      const result = await gen.next();
+
+      // Verify mock was called without tools
+      expect(mockCreate).toHaveBeenCalled();
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.tools).toBeUndefined();
+      expect(callArgs.tool_choice).toBeUndefined();
     });
   });
 });

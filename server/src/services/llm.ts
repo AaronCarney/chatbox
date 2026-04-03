@@ -20,7 +20,8 @@ export function buildMessages(
 
 export async function* streamChat(
   messages: Array<{ role: string; content: string; [key: string]: any }>,
-  tools: any[]
+  tools: any[],
+  toolChoice?: string
 ) {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -28,11 +29,20 @@ export async function* streamChat(
 
   const model = process.env.OPENAI_MODEL || 'gpt-4o';
 
-  const stream = await openai.chat.completions.create({
+  const params: any = {
     model,
     messages: messages as OpenAI.ChatCompletionMessageParam[],
-    stream: true
-  });
+    stream: true,
+  };
+
+  if (tools.length > 0) {
+    params.tools = tools;
+    if (toolChoice) {
+      params.tool_choice = toolChoice;
+    }
+  }
+
+  const stream = await openai.chat.completions.create(params);
 
   for await (const chunk of stream) {
     yield chunk;
