@@ -12,7 +12,8 @@ import { useToolExecution } from '../hooks/useToolExecution.js'
 interface AvailableApp {
   id: string
   name: string
-  url: string
+  iframe_url: string
+  description_for_model?: string
   [key: string]: unknown
 }
 
@@ -176,7 +177,7 @@ export function ChatBridgeApp() {
           const args = parseArgs() as { appId?: string; url?: string; app_id?: string }
           const appId = args.appId ?? args.app_id ?? id
           const app = availableApps.find((a) => a.id === appId)
-          launchApp(appId, args.url ?? (app as any)?.iframe_url ?? '')
+          launchApp(appId, app?.iframe_url ?? '')
           setTimeout(() => {
             const iframe = iframeRefs.current.get(appId)
             if (iframe && brokerRef.current) {

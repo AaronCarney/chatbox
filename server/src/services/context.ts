@@ -1,6 +1,8 @@
 interface Message {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  tool_calls?: any[];
+  tool_call_id?: string;
 }
 
 /**
@@ -18,21 +20,25 @@ export function trimHistory(messages: Message[], maxVerbatim = 20): Message[] {
     return messages;
   }
 
-  // Find a safe cut point: must start on a 'user' message boundary
-  // Never cut between assistant(tool_calls) and its tool result(s)
+  // Find a safe cut point: must land on a 'user' message.
+  // Never cut between assistant(tool_calls) and its tool result(s) — OpenAI 400s.
   let cutIdx = messages.length - maxVerbatim;
-  while (cutIdx < messages.length && messages[cutIdx]?.role !== 'user') {
+  if (cutIdx < 0) cutIdx = 0;
+  while (cutIdx < messages.length) {
+    const role = messages[cutIdx]?.role;
+    if (role === 'user') break;
     cutIdx++;
   }
-  if (cutIdx >= messages.length) cutIdx = messages.length - maxVerbatim; // fallback
+  if (cutIdx >= messages.length) cutIdx = Math.max(0, messages.length - maxVerbatim);
 
   const olderMessages = messages.slice(0, cutIdx);
   const lastMessages = messages.slice(cutIdx);
 
-  // Extract key content from older messages (max 3, first 50 chars each)
+  // Extract key content from older user/assistant messages only (skip tool/system)
   const summaryItems = olderMessages
+    .filter(msg => msg.role === 'user' || msg.role === 'assistant')
     .slice(0, 3)
-    .map(msg => msg.content.slice(0, 50));
+    .map(msg => (msg.content || '').slice(0, 50));
 
   // Create summary system message
   const summaryContent = `[Context summary: prior discussion covered: ${summaryItems.join(', ')}]`;
