@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { clerkAuth, requireSession } from './middleware/auth.js';
+import { securityHeaders, generalLimiter, chatLimiter } from './middleware/rateLimit.js';
 import { healthRouter } from './routes/health.js';
 import { appsRouter } from './routes/apps.js';
 import { chatRouter } from './routes/chat.js';
@@ -9,8 +10,11 @@ import { spotifyRouter } from './routes/spotify.js';
 
 const app = express();
 
+app.use(securityHeaders);
 app.use(cors());
 app.use(express.json());
+app.use('/api', generalLimiter);
+app.use('/api/chat', chatLimiter);
 
 // Apply Clerk authentication middleware globally
 app.use(clerkAuth);
