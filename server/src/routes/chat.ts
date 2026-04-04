@@ -6,6 +6,7 @@ import { trimHistory, summarizeAppResult } from '../services/context.js';
 import { stripPii } from '../middleware/pii.js';
 import { getApps, saveMessage } from '../db/client.js';
 import { logger } from '../lib/logger.js';
+import { langfuse } from '../lib/langfuse.js';
 import { sessionManager } from '../services/sessionSingleton.js';
 
 const chatRouter = Router();
@@ -23,6 +24,14 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
   }
 
   log.info({ hasToolResult: !!toolResult }, 'chat request started');
+
+  // Langfuse trace for full request observability
+  const trace = langfuse?.trace({
+    name: 'chat-request',
+    userId: pseudonym || undefined,
+    sessionId: requestId,
+    metadata: { activeAppId, messageCount: messages.length, hasToolResult: !!toolResult },
+  });
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -128,6 +137,15 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     const llmMessages = buildMessages(trimmed, tools, apps, activeAppId);
 
     // Stream from LLM
+    const model = process.env.OPENAI_MODEL || 'gpt-4o';
+    const generation = trace?.generation({
+      name: 'openai-chat',
+      model,
+      input: llmMessages,
+      modelParameters: { max_tokens: 1024, tool_choice: 'auto' },
+      metadata: { toolCount: tools.length, activeAppId },
+    });
+
     const stream = streamChat(llmMessages, tools, 'auto');
 
     let totalContent = '';
@@ -178,14 +196,22 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     const promptTokens = lastUsage?.prompt_tokens || estimateTokens(llmMessages);
     const completionTokens = lastUsage?.completion_tokens || Math.ceil(totalContent.length / 4);
     const estimatedCost = (promptTokens * 2.5 + completionTokens * 10) / 1_000_000;
+    const duration = Date.now() - start;
+
+    // End Langfuse generation with full metrics
+    generation?.end({
+      output: totalContent || (assembledToolCalls.length > 0 ? assembledToolCalls : undefined),
+      usage: { promptTokens, completionTokens, totalTokens: promptTokens + completionTokens },
+      metadata: { toolCalls: assembledToolCalls.map(tc => tc.name), estimatedCost, duration },
+    });
 
     log.info({
       requestId,
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      model,
       promptTokens,
       completionTokens,
       estimatedCost,
-      duration: `${Date.now() - start}ms`,
+      duration: `${duration}ms`,
     }, 'llm usage');
 
     log.info({ duration: `${Date.now() - start}ms` }, 'chat stream complete');
@@ -207,8 +233,11 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error({ err, duration: `${Date.now() - start}ms` }, 'chat request failed');
+    trace?.update({ metadata: { error: message, level: 'ERROR' } });
     res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
     res.end();
+  } finally {
+    langfuse?.flushAsync().catch(() => {});
   }
 });
 
