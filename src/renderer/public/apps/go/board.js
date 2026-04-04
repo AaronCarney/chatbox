@@ -147,8 +147,8 @@ window.GoBoard = {
     var rect = canvas.getBoundingClientRect();
     var scale = canvas.width / rect.width;
     var cellSize = this._cellSize(canvas, game.size);
-    var x = Math.round(((event.clientX - rect.left) * scale - cellSize / 2) / cellSize);
-    var y = Math.round(((event.clientY - rect.top) * scale - cellSize / 2) / cellSize);
+    var x = Math.round((event.clientX - rect.left) * scale / cellSize - 1);
+    var y = Math.round((event.clientY - rect.top) * scale / cellSize - 1);
     if (x < 0 || x >= game.size || y < 0 || y >= game.size) return null;
     return { x: x, y: y };
   },

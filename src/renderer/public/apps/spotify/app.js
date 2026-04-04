@@ -30,6 +30,9 @@
 
   function renderTracks(tracks, containerId) {
     var container = document.getElementById(containerId);
+    // Ensure results are visible even if auth check hasn't completed
+    document.getElementById('connected').style.display = 'block';
+    document.getElementById('auth-prompt').style.display = 'none';
     while (container.firstChild) container.removeChild(container.firstChild);
     tracks.forEach(function (track) {
       var card = document.createElement('div');
