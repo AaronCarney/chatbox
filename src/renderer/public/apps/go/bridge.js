@@ -104,8 +104,10 @@ function setupCanvasListener() {
 
   canvas.addEventListener('click', function(event) {
     if (!engine || engine.over) return;
-    // In 1P mode, only allow human to play as black (turn 1)
+    // In 1P mode, only allow human to play on their turn
     if (mode === '1p' && engine.turn !== 1) return;
+    // Ensure canvas listener has an initialized engine
+    if (!engine.board) return;
     var pos = GoBoard.onClick(event, engine);
     if (!pos) return;
     var result = GoEngine.placeStone(engine, pos.x, pos.y);
@@ -128,7 +130,8 @@ function setupCanvasListener() {
 
 // UI buttons
 document.getElementById('btn-new-game').addEventListener('click', function() {
-  var size = engine ? engine.size : 9;
+  var sel = document.getElementById('size-select');
+  var size = sel ? parseInt(sel.value, 10) : (engine ? engine.size : 9);
   engine = GoEngine.newGame(size);
   humanMoveCount = 0;
   GoBoard.render(engine);
@@ -285,6 +288,9 @@ ChatBridge.on('launch', function(config) {
   init(config && config.board_size, config && config.savedState);
   setupCanvasListener();
 });
+
+// Initialize on load (ChatBridge.on('launch') re-inits with saved state if available)
+init();
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', setupCanvasListener);

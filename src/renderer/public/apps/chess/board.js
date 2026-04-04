@@ -52,7 +52,7 @@ window.ChessBoard = (function () {
         }
 
         (function(n) {
-          sq.addEventListener('click', function() { onSquareClick(n, game); });
+          sq.addEventListener('click', function() { window.ChessBoard.onSquareClick(n, game); });
         })(name);
         board.appendChild(sq);
       }

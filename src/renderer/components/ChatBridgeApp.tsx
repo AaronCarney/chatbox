@@ -310,7 +310,7 @@ export function ChatBridgeApp() {
             iframeUrl={app.iframeUrl}
             isActive={app.status === 'active'}
             height={iframeHeights.get(app.id)}
-            sandbox={app.id === 'spotify' ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox' : undefined}
+            sandbox={app.id === 'spotify' ? 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts allow-same-origin'}
             onRef={(el) => {
               if (el) {
                 iframeRefs.current.set(app.id, el)
