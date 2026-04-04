@@ -225,6 +225,41 @@
     ChatBridge.sendState(ChessEngine.getState(game));
   });
 
+  // Save/Load
+  var SAVE_KEY = 'chatbridge:chess:save';
+
+  function updateLoadButton() {
+    var btn = document.getElementById('btn-load');
+    if (btn) btn.disabled = !localStorage.getItem(SAVE_KEY);
+  }
+
+  document.getElementById('btn-save').addEventListener('click', function() {
+    if (!game) return;
+    localStorage.setItem(SAVE_KEY, JSON.stringify(ChessEngine.serialize(game)));
+    updateLoadButton();
+    var statusEl = document.getElementById('status');
+    statusEl.textContent = 'Game saved!';
+    setTimeout(function() { ChessBoard.updateStatus(game); }, 1200);
+  });
+
+  document.getElementById('btn-load').addEventListener('click', function() {
+    var saved = localStorage.getItem(SAVE_KEY);
+    if (!saved) return;
+    try {
+      var data = JSON.parse(saved);
+      game = ChessEngine.loadGame(data.fen);
+      humanMoveCount = 0;
+      ChessBoard.clearSelection();
+      ChessBoard.render(game);
+      ChessBoard.updateStatus(game);
+      updateUndoState();
+      resetClock();
+      saveGame();
+    } catch (e) { console.error('Load failed:', e); }
+  });
+
+  updateLoadButton();
+
   // Mode toggle
   document.getElementById('mode-select').addEventListener('change', function(e) {
     mode = e.target.value;

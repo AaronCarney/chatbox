@@ -163,6 +163,44 @@ document.getElementById('btn-undo').addEventListener('click', function() {
   }
 });
 
+// Save/Load
+var SAVE_KEY = 'chatbridge:go:save';
+
+function updateLoadButton() {
+  var btn = document.getElementById('btn-load');
+  if (btn) btn.disabled = !localStorage.getItem(SAVE_KEY);
+}
+
+document.getElementById('btn-save').addEventListener('click', function() {
+  if (!engine) return;
+  localStorage.setItem(SAVE_KEY, JSON.stringify(GoEngine.serialize(engine)));
+  updateLoadButton();
+  var statusEl = document.getElementById('status');
+  statusEl.textContent = 'Game saved!';
+  setTimeout(function() { GoBoard.updateStatus(engine); }, 1200);
+});
+
+document.getElementById('btn-load').addEventListener('click', function() {
+  var saved = localStorage.getItem(SAVE_KEY);
+  if (!saved) return;
+  try {
+    var data = JSON.parse(saved);
+    var restored = GoEngine.deserialize(data);
+    if (restored) {
+      engine = restored;
+      humanMoveCount = 0;
+      var sel = document.getElementById('size-select');
+      if (sel) sel.value = String(engine.size);
+      GoBoard.render(engine);
+      GoBoard.updateStatus(engine);
+      updateUndoState();
+      saveGame();
+    }
+  } catch (e) { console.error('Load failed:', e); }
+});
+
+updateLoadButton();
+
 document.getElementById('size-select').addEventListener('change', function(e) {
   var size = parseInt(e.target.value, 10);
   engine = GoEngine.newGame(size);
