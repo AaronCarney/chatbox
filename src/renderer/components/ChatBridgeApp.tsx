@@ -301,7 +301,7 @@ export function ChatBridgeApp() {
   const hasActiveApp = Array.from(apps.values()).some((app) => app.status === 'active')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', backgroundColor: '#16161e' }}>
       {/* App panel — fixed height when active, hidden when no app */}
       {hasActiveApp && (
         <div style={{

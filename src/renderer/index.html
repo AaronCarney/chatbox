@@ -40,7 +40,11 @@
       // gtag('config', 'G-B365F44W6E');
     </script>
     <script>
-      var initialTheme = localStorage.getItem("initial-theme") || "dark";
+      var initialTheme = localStorage.getItem("initial-theme");
+      if (!initialTheme) {
+        initialTheme = "dark";
+        localStorage.setItem("initial-theme", "dark");
+      }
       document.documentElement.setAttribute("data-theme", initialTheme);
       document.documentElement.setAttribute(
         "data-mantine-color-scheme",
@@ -64,11 +68,8 @@
         justify-content: center;
         align-items: center;
         opacity: 1;
-        background-color: #fff;
+        background-color: #16161e;
         overflow: hidden;
-      }
-      html[data-theme="dark"] .splash-screen {
-        background-color: #242424;
       }
 
       .splash-screen-top {

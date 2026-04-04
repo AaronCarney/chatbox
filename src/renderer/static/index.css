@@ -35,6 +35,7 @@ body,
 #root {
   /* 固定高度为100%而不是100vh或者calc(var(--vh, 1vh) * 100)，可以在解决移动端浏览器地址栏高度计算的前提下避免弹出输入法时卡顿 */
   height: 100%;
+  background-color: var(--chatbox-background-primary, #16161e);
 }
 
 html[data-theme="dark"] {
