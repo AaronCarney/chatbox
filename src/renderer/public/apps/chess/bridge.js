@@ -16,6 +16,88 @@
         result: game.in_checkmate() ? 'Checkmate' : 'Draw',
         moves: game.history().length,
       });
+      return;
+    }
+    if (game.turn() === 'b') {
+      setTimeout(computerMove, 300);
+    }
+  }
+
+  // --- Simple chess AI (minimax, depth 2) ---
+  var PIECE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+
+  function evaluate(g) {
+    if (g.in_checkmate()) return g.turn() === 'b' ? 99999 : -99999;
+    if (g.in_draw() || g.in_stalemate()) return 0;
+    var score = 0;
+    var board = g.board();
+    for (var r = 0; r < 8; r++) {
+      for (var c = 0; c < 8; c++) {
+        var piece = board[r][c];
+        if (!piece) continue;
+        var val = PIECE_VALUES[piece.type] || 0;
+        // Center bonus for knights/bishops
+        if ((piece.type === 'n' || piece.type === 'b') && c >= 2 && c <= 5 && r >= 2 && r <= 5) val += 20;
+        score += piece.color === 'w' ? val : -val;
+      }
+    }
+    return score;
+  }
+
+  function minimax(g, depth, alpha, beta, maximizing) {
+    if (depth === 0 || g.game_over()) return evaluate(g);
+    var moves = g.moves();
+    if (maximizing) {
+      var maxEval = -Infinity;
+      for (var i = 0; i < moves.length; i++) {
+        g.move(moves[i]);
+        var ev = minimax(g, depth - 1, alpha, beta, false);
+        g.undo();
+        if (ev > maxEval) maxEval = ev;
+        if (ev > alpha) alpha = ev;
+        if (beta <= alpha) break;
+      }
+      return maxEval;
+    } else {
+      var minEval = Infinity;
+      for (var i = 0; i < moves.length; i++) {
+        g.move(moves[i]);
+        var ev = minimax(g, depth - 1, alpha, beta, true);
+        g.undo();
+        if (ev < minEval) minEval = ev;
+        if (ev < beta) beta = ev;
+        if (beta <= alpha) break;
+      }
+      return minEval;
+    }
+  }
+
+  function computerMove() {
+    if (!game || game.game_over() || game.turn() !== 'b') return;
+    var moves = game.moves({ verbose: true });
+    if (moves.length === 0) return;
+    var bestScore = Infinity;
+    var bestMove = moves[0];
+    for (var i = 0; i < moves.length; i++) {
+      game.move(moves[i].san);
+      var score = minimax(game, 2, -Infinity, Infinity, true);
+      game.undo();
+      if (score < bestScore) {
+        bestScore = score;
+        bestMove = moves[i];
+      }
+    }
+    ChessEngine.makeMove(game, bestMove.from, bestMove.to, bestMove.promotion);
+    ChessBoard.render(game);
+    ChessBoard.updateStatus(game);
+    saveGame();
+    ChatBridge.sendState(ChessEngine.getState(game));
+    if (game.game_over()) {
+      ChatBridge.complete('success', {
+        fen: game.fen(),
+        result: game.in_checkmate() ? 'Checkmate' : 'Draw',
+        moves: game.history().length,
+      });
     }
   }
 

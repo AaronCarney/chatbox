@@ -33,6 +33,67 @@ function init(boardSize, savedState) {
   ChatBridge.resize(500);
 }
 
+function computerMove() {
+  if (!engine || engine.over || engine.turn !== 2) return;
+  var size = engine.size;
+  var board = engine.board;
+  var me = 2, opp = 1;
+  var center = (size - 1) / 2;
+
+  // Score each empty cell
+  var candidates = [];
+  for (var y = 0; y < size; y++) {
+    for (var x = 0; x < size; x++) {
+      if (board[GoEngine.idx(x, y, size)] !== 0) continue;
+      // Test legality
+      var result = GoEngine.placeStone(engine, x, y);
+      if (!result.success) continue;
+      var captured = result.captured || 0;
+      GoEngine.undo(engine);
+
+      var score = 0;
+      // Captures are high value
+      score += captured * 50;
+      // Adjacency to friendly stones (builds territory)
+      var adj = GoEngine.neighbors(x, y, size);
+      for (var i = 0; i < adj.length; i++) {
+        var nv = board[GoEngine.idx(adj[i][0], adj[i][1], size)];
+        if (nv === me) score += 10;
+        if (nv === opp) score += 5; // contact play
+      }
+      // Center preference (closer to center = better in opening)
+      var distCenter = Math.abs(x - center) + Math.abs(y - center);
+      score += Math.max(0, size - distCenter);
+      // Star points bonus (3-3, 3-5 etc on 9x9)
+      if (size === 9 && (x === 2 || x === 4 || x === 6) && (y === 2 || y === 4 || y === 6)) score += 8;
+      // Avoid edges in opening
+      if (engine.moveCount < size && (x === 0 || x === size - 1 || y === 0 || y === size - 1)) score -= 15;
+
+      candidates.push({ x: x, y: y, score: score });
+    }
+  }
+
+  if (candidates.length === 0) {
+    GoEngine.passTurn(engine);
+    GoBoard.render(engine);
+    GoBoard.updateStatus(engine);
+    saveGame();
+    ChatBridge.sendState(GoEngine.getState(engine));
+    return;
+  }
+
+  // Pick best (with small randomness among top 3 for variety)
+  candidates.sort(function(a, b) { return b.score - a.score; });
+  var topN = Math.min(3, candidates.length);
+  var pick = candidates[Math.floor(Math.random() * topN)];
+
+  GoEngine.placeStone(engine, pick.x, pick.y);
+  GoBoard.render(engine);
+  GoBoard.updateStatus(engine);
+  saveGame();
+  ChatBridge.sendState(GoEngine.getState(engine));
+}
+
 var canvasListenerAttached = false;
 function setupCanvasListener() {
   if (canvasListenerAttached) return;
@@ -42,6 +103,8 @@ function setupCanvasListener() {
 
   canvas.addEventListener('click', function(event) {
     if (!engine || engine.over) return;
+    // Only allow human to play as black (turn 1)
+    if (engine.turn !== 1) return;
     var pos = GoBoard.onClick(event, engine);
     if (!pos) return;
     var result = GoEngine.placeStone(engine, pos.x, pos.y);
@@ -52,8 +115,11 @@ function setupCanvasListener() {
       updateUndoState();
       saveGame();
       ChatBridge.sendState(GoEngine.getState(engine));
+      // Computer plays white after human move
+      if (!engine.over && engine.turn === 2) {
+        setTimeout(computerMove, 400);
+      }
     } else {
-      // Flash invalid move feedback
       GoBoard.flashInvalid(engine, pos.x, pos.y);
     }
   });

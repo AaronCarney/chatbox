@@ -95,13 +95,17 @@ oauthRouter.get('/oauth/spotify/callback', async (req: Request, res: Response) =
     tokenStore.delete(state);
     logger.info({ sessionId: session_id }, 'spotify oauth: token exchange complete');
 
-    // Respond with HTML that closes the popup
+    // Close popup — show fallback message if window.close() is blocked
     res.setHeader('Content-Type', 'text/html');
-    res.send('<script>window.close()</script>');
+    res.send(`<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#fff">
+<div style="text-align:center"><h2>Connected to Spotify!</h2><p>You can close this window.</p></div>
+<script>window.close()</script></body></html>`);
   } catch (err) {
     logger.error({ err }, 'spotify oauth: callback failed');
     const errorMessage = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: errorMessage });
+    res.setHeader('Content-Type', 'text/html');
+    res.status(500).send(`<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#ff6b6b">
+<div style="text-align:center"><h2>Spotify Connection Failed</h2><p>${errorMessage.replace(/[<>"'&]/g, '')}</p><p>Close this window and try again.</p></div></body></html>`);
   }
 });
 

@@ -10,7 +10,7 @@ export interface IframeManagerProps {
   onRef?: (el: HTMLIFrameElement | null) => void
 }
 
-export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onRef }: IframeManagerProps) {
+export function IframeManager({ appId, iframeUrl, isActive, sandbox, onRef }: IframeManagerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
@@ -18,8 +18,6 @@ export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onR
       onRef(iframeRef.current)
     }
   }, [onRef])
-
-  const clampedHeight = Math.min(800, Math.max(200, height || 400))
 
   return (
     <iframe
@@ -33,7 +31,7 @@ export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onR
       title={appId}
       style={{
         width: '100%',
-        height: `${clampedHeight}px`,
+        height: '50vh',
         borderRadius: '8px',
         border: 'none',
         display: isActive ? 'block' : 'none',
