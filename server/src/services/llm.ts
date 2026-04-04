@@ -13,7 +13,7 @@ export function buildMessages(
   let systemContent = SYSTEM_PROMPT;
 
   if (apps.length > 0) {
-    systemContent += `\n\nAVAILABLE APPS — you MUST list every single one when asked what's available:\n${apps.map(a => `- ${a.name} (id: ${a.id})`).join('\n')}\nTotal: ${apps.length} apps. Never omit any.`;
+    systemContent += `\n\nCRITICAL — AVAILABLE APPS (list ALL ${apps.length} when user asks about games, apps, or what's available — "games" and "apps" mean the same thing here):\n${apps.map((a, i) => `${i + 1}. ${a.name} (id: ${a.id})`).join('\n')}\nYou MUST mention all ${apps.length} items above. If you list fewer than ${apps.length}, you are wrong.`;
   }
 
   systemContent += `\nCURRENT APP: ${activeAppId || 'none'}`;

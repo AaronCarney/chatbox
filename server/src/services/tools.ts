@@ -59,7 +59,7 @@ export const PLATFORM_TOOLS: OpenAITool[] = [
     type: 'function',
     function: {
       name: 'get_available_apps',
-      description: 'List all available third-party apps the student can use. Use when the student asks what apps or games are available.',
+      description: 'List ALL available apps. ALWAYS call this tool when the student asks what games or apps are available, instead of answering from memory.',
       parameters: {
         type: 'object',
         properties: {},
