@@ -18,15 +18,15 @@ export interface AppCardProps {
 const typeStyles = {
   result: {
     borderColor: '#22c55e',
-    bgColor: 'rgba(34, 197, 94, 0.05)',
+    bgColor: 'rgba(34, 197, 94, 0.12)',
   },
   error: {
     borderColor: '#ef4444',
-    bgColor: 'rgba(239, 68, 68, 0.05)',
+    bgColor: 'rgba(239, 68, 68, 0.12)',
   },
   partial: {
     borderColor: '#eab308',
-    bgColor: 'rgba(234, 179, 8, 0.05)',
+    bgColor: 'rgba(234, 179, 8, 0.12)',
   },
 }
 

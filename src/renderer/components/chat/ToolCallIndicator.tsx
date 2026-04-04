@@ -24,7 +24,8 @@ export const ToolCallIndicator: React.FC<ToolCallIndicatorProps> = ({
     <div
       className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
       style={{
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#2a2a3a',
+        color: '#b0b0c0',
         padding: '4px 12px',
         fontSize: '13px',
         gap: '6px',

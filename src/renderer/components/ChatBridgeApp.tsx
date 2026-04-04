@@ -306,7 +306,7 @@ export function ChatBridgeApp() {
       {hasActiveApp && (
         <div style={{
           flex: '0 0 65vh',
-          borderBottom: '2px solid #e5e7eb',
+          borderBottom: '2px solid #2d2d3d',
           backgroundColor: '#1a1a2e',
           position: 'relative',
           overflow: 'hidden',
@@ -356,7 +356,7 @@ export function ChatBridgeApp() {
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        backgroundColor: '#fff',
+        backgroundColor: '#16161e',
       }}>
         <div style={{
           flex: 1,
@@ -378,8 +378,8 @@ export function ChatBridgeApp() {
                     maxWidth: '70%',
                     padding: '10px 14px',
                     borderRadius: '12px',
-                    backgroundColor: isUser ? '#2563eb' : '#f3f4f6',
-                    color: isUser ? '#fff' : '#111',
+                    backgroundColor: isUser ? '#2563eb' : '#2a2a3a',
+                    color: isUser ? '#fff' : '#e0e0e6',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                     fontSize: '14px',
@@ -398,8 +398,8 @@ export function ChatBridgeApp() {
                   maxWidth: '70%',
                   padding: '10px 14px',
                   borderRadius: '12px',
-                  backgroundColor: '#f3f4f6',
-                  color: '#111',
+                  backgroundColor: '#2a2a3a',
+                  color: '#e0e0e6',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                   fontSize: '14px',
@@ -434,8 +434,8 @@ export function ChatBridgeApp() {
             display: 'flex',
             gap: '8px',
             padding: '10px 16px',
-            borderTop: '1px solid #e5e7eb',
-            backgroundColor: '#fafafa',
+            borderTop: '1px solid #2d2d3d',
+            backgroundColor: '#1e1e2e',
             flexShrink: 0,
           }}
         >
@@ -450,7 +450,9 @@ export function ChatBridgeApp() {
               flex: 1,
               padding: '10px 14px',
               borderRadius: '8px',
-              border: '1px solid #d1d5db',
+              border: '1px solid #3d3d4d',
+              backgroundColor: '#252535',
+              color: '#e0e0e6',
               fontSize: '14px',
               outline: 'none',
             }}
