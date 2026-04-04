@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getSpotifyToken } from './oauth.js';
 import { logger } from '../lib/logger.js';
+import { filterTracksSafety } from '../lib/content-safety.js';
 
 const spotifyRouter = Router();
 
@@ -53,14 +54,14 @@ spotifyRouter.get('/spotify/search', async (req: Request, res: Response) => {
       session_id
     );
 
-    // Filter explicit content for K-12 safety, take top 10
-    const safeTracks = (result.tracks.items || [])
-      .filter((t: any) => !t.explicit)
-      .slice(0, 10)
-      .map((t: any) => ({
-        ...t,
-        spotify_url: t.external_urls?.spotify || null,
-      }));
+    // Layer 1: Filter Spotify explicit flag
+    const nonExplicit = (result.tracks.items || []).filter((t: any) => !t.explicit);
+    // Layer 2: Album art + lyrics content safety (OpenAI moderation + LRCLIB)
+    const safeContent = await filterTracksSafety(nonExplicit);
+    const safeTracks = safeContent.slice(0, 10).map((t: any) => ({
+      ...t,
+      spotify_url: t.external_urls?.spotify || null,
+    }));
 
     res.json({ tracks: safeTracks });
   } catch (err) {
@@ -170,10 +171,10 @@ spotifyRouter.get('/spotify/recommendations', async (req: Request, res: Response
       session_id
     );
 
-    // Filter explicit content for K-12 safety
-    const safeTracks = (result.tracks || [])
-      .filter((track: any) => !track.explicit)
-      .map((track: any) => ({
+    // Layer 1: Spotify explicit flag, Layer 2: content safety
+    const nonExplicitRecs = (result.tracks || []).filter((track: any) => !track.explicit);
+    const safeRecs = await filterTracksSafety(nonExplicitRecs);
+    const safeTracks = safeRecs.map((track: any) => ({
         id: track.id,
         name: track.name,
         artists: track.artists.map((a: any) => a.name),
