@@ -14,7 +14,9 @@ window.GoBoard = {
     var ctx = canvas.getContext('2d');
     var size = game.size;
 
-    var containerWidth = Math.min(400, window.innerWidth - 24);
+    var maxByWidth = window.innerWidth - 16;
+    var maxByHeight = window.innerHeight - 90; // toolbar + status + captures
+    var containerWidth = Math.min(maxByWidth, maxByHeight, 600);
     canvas.width = containerWidth;
     canvas.height = containerWidth;
     canvas.style.width = containerWidth + 'px';

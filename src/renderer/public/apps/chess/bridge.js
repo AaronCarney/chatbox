@@ -1,7 +1,74 @@
 (function() {
   var game = null;
-  // Track which moves were made by human (UI clicks) vs LLM (tool calls)
   var humanMoveCount = 0;
+  var mode = '1p'; // '1p' or '2p'
+
+  // --- Clock state ---
+  var clockMinutes = 5;
+  var whiteTime = 300; // seconds
+  var blackTime = 300;
+  var clockInterval = null;
+  var clockEnabled = true;
+
+  function formatTime(secs) {
+    var m = Math.floor(secs / 60);
+    var s = secs % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function updateClockDisplay() {
+    var wEl = document.getElementById('clock-white');
+    var bEl = document.getElementById('clock-black');
+    if (!wEl || !bEl) return;
+    wEl.textContent = formatTime(whiteTime);
+    bEl.textContent = formatTime(blackTime);
+    wEl.classList.toggle('active-clock', game && game.turn() === 'w' && !game.game_over());
+    bEl.classList.toggle('active-clock', game && game.turn() === 'b' && !game.game_over());
+    wEl.classList.toggle('low-time', whiteTime <= 30);
+    bEl.classList.toggle('low-time', blackTime <= 30);
+  }
+
+  function startClock() {
+    stopClock();
+    if (!clockEnabled || !game || game.game_over()) return;
+    clockInterval = setInterval(function() {
+      if (!game || game.game_over()) { stopClock(); return; }
+      if (game.turn() === 'w') {
+        whiteTime = Math.max(0, whiteTime - 1);
+        if (whiteTime === 0) {
+          stopClock();
+          var statusEl = document.getElementById('status');
+          statusEl.textContent = 'White ran out of time — Black wins!';
+          statusEl.className = 'status game-over';
+        }
+      } else {
+        blackTime = Math.max(0, blackTime - 1);
+        if (blackTime === 0) {
+          stopClock();
+          var statusEl = document.getElementById('status');
+          statusEl.textContent = 'Black ran out of time — White wins!';
+          statusEl.className = 'status game-over';
+        }
+      }
+      updateClockDisplay();
+    }, 1000);
+  }
+
+  function stopClock() {
+    if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+  }
+
+  function resetClock() {
+    stopClock();
+    var sel = document.getElementById('clock-select');
+    clockMinutes = parseInt(sel ? sel.value : '5', 10);
+    clockEnabled = clockMinutes > 0;
+    whiteTime = clockMinutes * 60;
+    blackTime = clockMinutes * 60;
+    var bar = document.querySelector('.clock-bar');
+    if (bar) bar.style.display = clockEnabled ? 'flex' : 'none';
+    updateClockDisplay();
+  }
 
   function saveGame() {
     if (game) ChatBridge.saveState(ChessEngine.serialize(game));
@@ -11,6 +78,7 @@
     saveGame();
     ChatBridge.sendState(ChessEngine.getState(game));
     if (game.game_over()) {
+      stopClock();
       ChatBridge.complete('success', {
         fen: game.fen(),
         result: game.in_checkmate() ? 'Checkmate' : 'Draw',
@@ -18,7 +86,10 @@
       });
       return;
     }
-    if (game.turn() === 'b') {
+    updateClockDisplay();
+    if (clockEnabled) startClock();
+    // Computer plays black in 1P mode
+    if (mode === '1p' && game.turn() === 'b') {
       setTimeout(computerMove, 300);
     }
   }
@@ -36,7 +107,6 @@
         var piece = board[r][c];
         if (!piece) continue;
         var val = PIECE_VALUES[piece.type] || 0;
-        // Center bonus for knights/bishops
         if ((piece.type === 'n' || piece.type === 'b') && c >= 2 && c <= 5 && r >= 2 && r <= 5) val += 20;
         score += piece.color === 'w' ? val : -val;
       }
@@ -90,15 +160,7 @@
     ChessEngine.makeMove(game, bestMove.from, bestMove.to, bestMove.promotion);
     ChessBoard.render(game);
     ChessBoard.updateStatus(game);
-    saveGame();
-    ChatBridge.sendState(ChessEngine.getState(game));
-    if (game.game_over()) {
-      ChatBridge.complete('success', {
-        fen: game.fen(),
-        result: game.in_checkmate() ? 'Checkmate' : 'Draw',
-        moves: game.history().length,
-      });
-    }
+    afterMove();
   }
 
   function updateUndoState() {
@@ -116,10 +178,11 @@
     ChessBoard.render(game);
     ChessBoard.updateStatus(game);
     updateUndoState();
+    resetClock();
     ChatBridge.resize(520);
   }
 
-  // Callback for promotion moves (async from picker)
+  // Callback for promotion moves
   window._chessMoveCallback = function(result) {
     if (result) {
       humanMoveCount++;
@@ -136,33 +199,60 @@
     ChessBoard.render(game);
     ChessBoard.updateStatus(game);
     updateUndoState();
+    resetClock();
+    if (clockEnabled) startClock();
     saveGame();
     ChatBridge.sendState(ChessEngine.getState(game));
   });
 
-  // Undo button — only undoes human moves
+  // Undo button
   document.getElementById('btn-undo').addEventListener('click', function() {
     if (!game || humanMoveCount === 0 || game.game_over()) return;
-    var undone = ChessEngine.undoMove(game);
-    if (undone) {
+    // In 1P mode, undo both computer and human move
+    if (mode === '1p' && game.history().length >= 2) {
+      ChessEngine.undoMove(game);
+      ChessEngine.undoMove(game);
       humanMoveCount--;
-      ChessBoard.clearSelection();
-      ChessBoard.render(game);
-      ChessBoard.updateStatus(game);
-      updateUndoState();
-      saveGame();
-      ChatBridge.sendState(ChessEngine.getState(game));
+    } else {
+      ChessEngine.undoMove(game);
+      humanMoveCount--;
     }
+    ChessBoard.clearSelection();
+    ChessBoard.render(game);
+    ChessBoard.updateStatus(game);
+    updateUndoState();
+    saveGame();
+    ChatBridge.sendState(ChessEngine.getState(game));
   });
 
-  // Wrap click handler for save + state after human moves
+  // Mode toggle
+  document.getElementById('mode-select').addEventListener('change', function(e) {
+    mode = e.target.value;
+    game = ChessEngine.newGame();
+    humanMoveCount = 0;
+    ChessBoard.clearSelection();
+    ChessBoard.render(game);
+    ChessBoard.updateStatus(game);
+    updateUndoState();
+    resetClock();
+    if (clockEnabled) startClock();
+    saveGame();
+  });
+
+  // Clock select
+  document.getElementById('clock-select').addEventListener('change', function() {
+    resetClock();
+    if (clockEnabled && game && !game.game_over()) startClock();
+  });
+
+  // Click handler
   var originalOnSquareClick = ChessBoard.onSquareClick;
   ChessBoard.onSquareClick = function(name, gameObj) {
+    // In 1P mode, only allow moves on white's turn
+    if (mode === '1p' && game.turn() === 'b') return null;
+
     var result = originalOnSquareClick.call(ChessBoard, name, gameObj);
-    if (result === 'pending_promotion') {
-      // Promotion picker is showing — callback handles afterMove
-      return result;
-    }
+    if (result === 'pending_promotion') return result;
     if (result) {
       humanMoveCount++;
       updateUndoState();
@@ -181,6 +271,8 @@
         ChessBoard.render(game);
         ChessBoard.updateStatus(game);
         updateUndoState();
+        resetClock();
+        if (clockEnabled) startClock();
         saveGame();
         ChatBridge.respondToTool(requestId, ChessEngine.getState(game));
         break;
@@ -188,12 +280,12 @@
       case 'make_move':
         var result = ChessEngine.makeMove(game, payload.arguments.from, payload.arguments.to);
         if (result) {
-          // LLM move — don't increment humanMoveCount
           ChessBoard.render(game);
           ChessBoard.updateStatus(game);
           saveGame();
           ChatBridge.respondToTool(requestId, ChessEngine.getState(game));
           if (game.game_over()) {
+            stopClock();
             ChatBridge.complete('success', {
               fen: game.fen(),
               result: game.in_checkmate() ? 'Checkmate' : 'Draw',

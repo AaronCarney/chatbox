@@ -44,7 +44,12 @@ window.ChessBoard = (function () {
         if (name === lastMoveFrom || name === lastMoveTo) sq.classList.add('last-move');
 
         var piece = game.get(name);
-        if (piece) sq.textContent = PIECE_CHARS[piece.color === 'w' ? piece.type.toUpperCase() : piece.type] || '';
+        if (piece) {
+          var span = document.createElement('span');
+          span.className = piece.color === 'w' ? 'piece-white' : 'piece-black';
+          span.textContent = PIECE_CHARS[piece.color === 'w' ? piece.type.toUpperCase() : piece.type] || '';
+          sq.appendChild(span);
+        }
 
         (function(n) {
           sq.addEventListener('click', function() { onSquareClick(n, game); });

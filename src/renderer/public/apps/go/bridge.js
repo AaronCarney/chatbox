@@ -1,5 +1,6 @@
 var engine = null;
 var humanMoveCount = 0;
+var mode = '1p'; // '1p' or '2p'
 
 function saveGame() {
   if (engine) ChatBridge.saveState(GoEngine.serialize(engine));
@@ -103,8 +104,8 @@ function setupCanvasListener() {
 
   canvas.addEventListener('click', function(event) {
     if (!engine || engine.over) return;
-    // Only allow human to play as black (turn 1)
-    if (engine.turn !== 1) return;
+    // In 1P mode, only allow human to play as black (turn 1)
+    if (mode === '1p' && engine.turn !== 1) return;
     var pos = GoBoard.onClick(event, engine);
     if (!pos) return;
     var result = GoEngine.placeStone(engine, pos.x, pos.y);
@@ -115,8 +116,8 @@ function setupCanvasListener() {
       updateUndoState();
       saveGame();
       ChatBridge.sendState(GoEngine.getState(engine));
-      // Computer plays white after human move
-      if (!engine.over && engine.turn === 2) {
+      // Computer plays white after human move in 1P mode
+      if (mode === '1p' && !engine.over && engine.turn === 2) {
         setTimeout(computerMove, 400);
       }
     } else {
@@ -164,6 +165,17 @@ document.getElementById('btn-undo').addEventListener('click', function() {
 
 document.getElementById('size-select').addEventListener('change', function(e) {
   var size = parseInt(e.target.value, 10);
+  engine = GoEngine.newGame(size);
+  humanMoveCount = 0;
+  GoBoard.render(engine);
+  GoBoard.updateStatus(engine);
+  updateUndoState();
+  saveGame();
+});
+
+document.getElementById('mode-select').addEventListener('change', function(e) {
+  mode = e.target.value;
+  var size = engine ? engine.size : 9;
   engine = GoEngine.newGame(size);
   humanMoveCount = 0;
   GoBoard.render(engine);
