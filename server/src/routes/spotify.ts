@@ -49,11 +49,20 @@ spotifyRouter.get('/spotify/search', async (req: Request, res: Response) => {
     }
 
     const result = await spotifyFetch(
-      `/search?q=${encodeURIComponent(q)}&type=track&limit=10`,
+      `/search?q=${encodeURIComponent(q)}&type=track&limit=20`,
       session_id
     );
 
-    res.json({ tracks: result.tracks.items });
+    // Filter explicit content for K-12 safety, take top 10
+    const safeTracks = (result.tracks.items || [])
+      .filter((t: any) => !t.explicit)
+      .slice(0, 10)
+      .map((t: any) => ({
+        ...t,
+        spotify_url: t.external_urls?.spotify || null,
+      }));
+
+    res.json({ tracks: safeTracks });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: errorMessage });
@@ -161,15 +170,18 @@ spotifyRouter.get('/spotify/recommendations', async (req: Request, res: Response
       session_id
     );
 
-    res.json({
-      tracks: result.tracks.map((track: any) => ({
+    // Filter explicit content for K-12 safety
+    const safeTracks = (result.tracks || [])
+      .filter((track: any) => !track.explicit)
+      .map((track: any) => ({
         id: track.id,
         name: track.name,
         artists: track.artists.map((a: any) => a.name),
         uri: track.uri,
-        external_urls: track.external_urls
-      }))
-    });
+        spotify_url: track.external_urls?.spotify || null,
+      }));
+
+    res.json({ tracks: safeTracks });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: errorMessage });

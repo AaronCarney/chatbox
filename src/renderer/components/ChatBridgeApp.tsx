@@ -298,136 +298,180 @@ export function ChatBridgeApp() {
 
   const isToolExecuting = toolState === 'tool_call_detected' || toolState === 'tool_executing'
 
+  const hasActiveApp = Array.from(apps.values()).some((app) => app.status === 'active')
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Iframes — hidden/visible per status */}
-      {Array.from(apps.values())
-        .filter((app) => app.status !== 'serialized')
+      {/* App panel — fixed height when active, hidden when no app */}
+      {hasActiveApp && (
+        <div style={{
+          flex: '0 0 65vh',
+          borderBottom: '2px solid #e5e7eb',
+          backgroundColor: '#1a1a2e',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          {Array.from(apps.values())
+            .filter((app) => app.status !== 'serialized')
+            .map((app) => (
+              <IframeManager
+                key={app.id}
+                appId={app.id}
+                iframeUrl={app.iframeUrl}
+                isActive={app.status === 'active'}
+                height={iframeHeights.get(app.id)}
+                sandbox={app.id === 'spotify' ? 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts allow-same-origin'}
+                onRef={(el) => {
+                  if (el) {
+                    iframeRefs.current.set(app.id, el)
+                  } else {
+                    iframeRefs.current.delete(app.id)
+                  }
+                }}
+              />
+            ))}
+        </div>
+      )}
+
+      {/* Hidden iframes for inactive apps (keep alive for state) */}
+      {!hasActiveApp && Array.from(apps.values())
+        .filter((app) => app.status !== 'serialized' && app.status !== 'active')
         .map((app) => (
           <IframeManager
             key={app.id}
             appId={app.id}
             iframeUrl={app.iframeUrl}
-            isActive={app.status === 'active'}
-            height={iframeHeights.get(app.id)}
-            sandbox={app.id === 'spotify' ? 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts allow-same-origin'}
+            isActive={false}
+            sandbox={'allow-scripts allow-same-origin'}
             onRef={(el) => {
-              if (el) {
-                iframeRefs.current.set(app.id, el)
-              } else {
-                iframeRefs.current.delete(app.id)
-              }
+              if (el) iframeRefs.current.set(app.id, el)
+              else iframeRefs.current.delete(app.id)
             }}
           />
         ))}
 
-      {/* Scrollable message list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {messages.map((msg, i) => {
-          if (msg.role === 'tool') return null
-          // Hide assistant messages that are just tool_calls with no visible text
-          if (msg.role === 'assistant' && !msg.content && msg.tool_calls) return null
-          if (msg.role === 'assistant' && !msg.content) return null
-          const isUser = msg.role === 'user'
-          return (
-            <div key={i} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+      {/* Chat panel — independent scroll */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        backgroundColor: '#fff',
+      }}>
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '12px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        }}>
+          {messages.map((msg, i) => {
+            if (msg.role === 'tool') return null
+            if (msg.role === 'assistant' && !msg.content && msg.tool_calls) return null
+            if (msg.role === 'assistant' && !msg.content) return null
+            const isUser = msg.role === 'user'
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                <div
+                  style={{
+                    maxWidth: '70%',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: isUser ? '#2563eb' : '#f3f4f6',
+                    color: isUser ? '#fff' : '#111',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    fontSize: '14px',
+                  }}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            )
+          })}
+
+          {isStreaming && streamingText ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
               <div
                 style={{
                   maxWidth: '70%',
                   padding: '10px 14px',
                   borderRadius: '12px',
-                  backgroundColor: isUser ? '#2563eb' : '#f3f4f6',
-                  color: isUser ? '#fff' : '#111',
+                  backgroundColor: '#f3f4f6',
+                  color: '#111',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                   fontSize: '14px',
                 }}
               >
-                {msg.content}
+                {streamingText}
               </div>
             </div>
-          )
-        })}
+          ) : null}
 
-        {isStreaming && streamingText ? (
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div
-              style={{
-                maxWidth: '70%',
-                padding: '10px 14px',
-                borderRadius: '12px',
-                backgroundColor: '#f3f4f6',
-                color: '#111',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                fontSize: '14px',
-              }}
-            >
-              {streamingText}
+          {isToolExecuting && currentToolCall ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-start', paddingLeft: '4px' }}>
+              <ToolCallIndicator toolName={currentToolCall.name} state="executing" />
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {isToolExecuting && currentToolCall ? (
-          <div style={{ display: 'flex', justifyContent: 'flex-start', paddingLeft: '4px' }}>
-            <ToolCallIndicator toolName={currentToolCall.name} state="executing" />
-          </div>
-        ) : null}
+          {completedActivities.map((activity, i) => (
+            <AppCard
+              key={i}
+              appName={activity.appName}
+              type={activity.type}
+              payload={activity.payload}
+            />
+          ))}
 
-        {completedActivities.map((activity, i) => (
-          <AppCard
-            key={i}
-            appName={activity.appName}
-            type={activity.type}
-            payload={activity.payload}
-          />
-        ))}
+          <div ref={messagesEndRef} />
+        </div>
 
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input bar */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '8px',
-          padding: '12px 16px',
-          borderTop: '1px solid #e5e7eb',
-          backgroundColor: '#fff',
-        }}
-      >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
-          disabled={isStreaming}
+        {/* Input bar — pinned at bottom of chat panel */}
+        <div
           style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: '8px',
-            border: '1px solid #d1d5db',
-            fontSize: '14px',
-            outline: 'none',
-          }}
-        />
-        <button
-          onClick={() => void handleSend()}
-          disabled={isStreaming || !input.trim()}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: '#2563eb',
-            color: '#fff',
-            fontSize: '14px',
-            cursor: isStreaming || !input.trim() ? 'not-allowed' : 'pointer',
-            opacity: isStreaming || !input.trim() ? 0.5 : 1,
+            display: 'flex',
+            gap: '8px',
+            padding: '10px 16px',
+            borderTop: '1px solid #e5e7eb',
+            backgroundColor: '#fafafa',
+            flexShrink: 0,
           }}
         >
-          Send
-        </button>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            disabled={isStreaming}
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+              fontSize: '14px',
+              outline: 'none',
+            }}
+          />
+          <button
+            onClick={() => void handleSend()}
+            disabled={isStreaming || !input.trim()}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: '#2563eb',
+              color: '#fff',
+              fontSize: '14px',
+              cursor: isStreaming || !input.trim() ? 'not-allowed' : 'pointer',
+              opacity: isStreaming || !input.trim() ? 0.5 : 1,
+            }}
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -30,10 +30,19 @@
 
   function renderTracks(tracks, containerId) {
     var container = document.getElementById(containerId);
-    container.innerHTML = '';
+    while (container.firstChild) container.removeChild(container.firstChild);
     tracks.forEach(function (track) {
       var card = document.createElement('div');
       card.className = 'track-card';
+      card.style.cursor = 'pointer';
+
+      var spotifyUrl = track.spotify_url || (track.external_urls && track.external_urls.spotify);
+      if (spotifyUrl) {
+        card.title = 'Open in Spotify';
+        card.addEventListener('click', function () {
+          window.open(spotifyUrl, '_blank', 'noopener');
+        });
+      }
 
       var img = document.createElement('img');
       var albumImages = track.album && track.album.images;

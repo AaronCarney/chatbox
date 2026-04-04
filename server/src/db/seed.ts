@@ -221,7 +221,7 @@ export async function seed() {
     [
       'spotify',
       'Spotify',
-      'Music streaming service integration that allows searching tracks, creating playlists, adding tracks to playlists, and getting recommendations based on seed tracks.',
+      'Music streaming service. Search tracks, create playlists, add tracks to playlists, get recommendations. Tracks open in the Spotify app for playback (no in-app playback). All results are filtered for age-appropriate content.',
       '/apps/spotify/index.html',
       'oauth2',
       JSON.stringify({
