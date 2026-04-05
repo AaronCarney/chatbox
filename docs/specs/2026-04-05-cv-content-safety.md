@@ -22,21 +22,25 @@ The CV pipeline is Layer 1 (universal). API-level moderation (e.g., Spotify lyri
 
 ## Capture Layer
 
-### Two-Tier Capture Strategy
+### SDK-Based Capture (Strict Sandbox Preserved)
 
-All apps are same-origin (`/apps/*`) with `sandbox="allow-scripts allow-same-origin"`, so the parent can access `iframe.contentDocument`.
+Iframes keep `sandbox="allow-scripts"` with NO `allow-same-origin`. The `credentialless` attribute stays. The parent never accesses `iframe.contentDocument`. Instead, capture works through the existing PostMessageBroker communication channel:
 
-**Required change:** `IframeManager.tsx` currently renders iframes with `credentialless=""`, which forces cross-origin isolation and **blocks `contentDocument` access** even for same-origin content. The `credentialless` attribute must be removed from iframes serving `/apps/*` content. This is a prerequisite for the entire capture layer.
+1. Parent sends `capture.request` message to the active iframe via PostMessageBroker
+2. The ChatBridge SDK (already loaded in every app) handles the request internally:
+   - **Canvas-based apps (Go, DOS):** SDK finds the `<canvas>` element, calls `canvas.toDataURL('image/jpeg', 0.5)` — fast, low bandwidth
+   - **DOM-based apps (Spotify, Chess):** SDK uses `modern-screenshot` (`domToPng`) on `document.body` — captures full DOM including images
+3. SDK sends the image data back via `capture.response` postMessage
+4. Parent receives the data URL, resizes to 224×224 on a local canvas, sends to classification Worker
 
-**Tier 1 — Canvas-based apps (Go, DOS):**
-Direct `drawImage()` from `iframe.contentDocument.querySelector('canvas')` onto a local canvas. Sub-millisecond, zero dependencies. GPU-accelerated blit.
+**Why this approach:**
+- **Strict sandbox preserved** — no `allow-same-origin`, no `credentialless` removal, no `contentDocument` access. The iframe cannot escape.
+- **Universal** — same `capture.request`/`capture.response` protocol for all apps. Handled by the SDK, not per-app code.
+- **Tamper concern:** A compromised app could send a fake clean image. Mitigated by: (a) all apps are first-party admin-curated, (b) API-level moderation (Layer 2) cross-checks source content independently, (c) SDK capture code is in the platform-provided `chatbridge-sdk.js`, not app code.
 
-**Tier 2 — DOM-based apps (Spotify, Chess):**
-`modern-screenshot` library (`domToPng` / `domToCanvas`) on `iframe.contentDocument.body`. ~1-2s for 20-50 elements. 185KB unpacked.
+**SDK change required:** Add `capture.request` handler to `chatbridge-sdk.js`. The SDK already handles `tool.invoke`, `app.launch`, and state requests — this adds one more handler following the same pattern.
 
-**Auto-detection:** If iframe contains a `<canvas>` with nonzero dimensions → Tier 1. Otherwise → Tier 2.
-
-**Why not html2canvas:** 3x slower, 18x larger (3.4MB), confirmed bug rendering `<canvas>` elements as empty (GitHub #1311).
+**`modern-screenshot` dependency:** Bundled into `chatbridge-sdk.js` for DOM-based capture. Only loaded when `capture.request` is received and no `<canvas>` element is found. ~185KB.
 
 ### Capture Triggers
 
@@ -48,23 +52,21 @@ Direct `drawImage()` from `iframe.contentDocument.querySelector('canvas')` onto 
 
 **Single-slot buffer:** If a new event fires while a previous frame is being classified, the old frame is dropped and replaced. Never queues more than one pending frame.
 
+**Timeout:** If the iframe doesn't respond to `capture.request` within 3 seconds, skip that frame. A non-responsive app is logged but not blocked (could be loading, frozen, or slow).
+
 ### Capture Resize
 
-Captured frame resized to 224×224 before classification (MobileNet/NSFWJS native input size). This is the ML model input, not the display size — the app panel renders at full resolution for the user.
+Parent resizes received image to 224×224 on a local canvas before classification (MobileNet/NSFWJS native input size). This is the ML model input, not the display size — the app panel renders at full resolution for the user.
 
 ### Cross-Origin Image Limitation
 
-Spotify album art (`i.scdn.co`) does NOT send CORS headers. DOM captures of Spotify will show track text/layout but blank album art thumbnails. This is acceptable — album art is already checked at original resolution via the API-level moderation (Layer 2).
-
-### Security Note
-
-`allow-scripts + allow-same-origin` lets embedded content theoretically escape the sandbox (MDN warning). Acceptable because all apps are first-party, admin-curated from `/apps/*`. CSP `frame-src` should be used as additional defense.
+Spotify album art (`i.scdn.co`) may not render in `modern-screenshot` captures if CORS headers are missing. Track text/layout will still be captured. Album art is already checked at original resolution via the API-level moderation (Layer 2).
 
 ## Classification Layer
 
 ### Architecture
 
-Capture runs on main thread (needs DOM access). Classification runs in a **Web Worker** (off main thread, UI stays responsive).
+Capture orchestration runs on main thread (sends `capture.request`, receives response, resizes). Classification runs in a **Web Worker** (off main thread, UI stays responsive).
 
 ### Classifier 1: NSFWJS (Local, Instant)
 
@@ -173,7 +175,7 @@ Total new dependency footprint: ~3.5-4MB
 src/renderer/
   lib/
     content-safety/
-      capture.ts            — Two-tier frame capture (canvas direct + modern-screenshot)
+      capture.ts            — Sends capture.request via broker, receives response, resizes to 224x224
       classifier.worker.ts  — Web Worker: NSFWJS + frame hash dedup
       hysteresis.ts         — Pure state machine (flag/unflag logic, no DOM)
       effects.ts            — DOM side effects (blur, overlay, CSS transitions)
@@ -182,6 +184,9 @@ src/renderer/
     iframe/
       SafetyOverlay.tsx     — Blur overlay + "Content isn't available" message
                               Rendered alongside IframeManager in ChatBridgeApp, not inside it
+  public/
+    sdk/
+      chatbridge-sdk.js     — Add capture.request handler (canvas.toDataURL or modern-screenshot)
 server/
   src/
     routes/
@@ -225,13 +230,11 @@ export function startMonitoring(iframeRefs: Map<string, HTMLIFrameElement>, brok
 
 ## Alignment with Design Spec (`docs/specs/2026-04-02-chatbridge-design.md`)
 
-### Sandbox Policy Amendment
+### Sandbox Policy — No Amendment Needed
 
-The original design spec states `sandbox="allow-scripts"` and "Never `allow-same-origin`." This CV pipeline requires `allow-same-origin` to access `iframe.contentDocument` for frame capture. The codebase already uses `allow-same-origin` in production (`IframeManager.tsx`).
+The SDK-based capture approach preserves the original design spec's strict sandbox: `sandbox="allow-scripts"`, no `allow-same-origin`, `credentialless` attribute retained. The parent never accesses `iframe.contentDocument`. Capture happens inside the iframe via the ChatBridge SDK and communicates results through postMessage — the same channel already used for tool invocation and state management. No sandbox policy changes required.
 
-**Tradeoff:** With `allow-scripts allow-same-origin`, a compromised iframe can escape the sandbox. Mitigations: all apps are first-party admin-curated from `/apps/*`, CSP `frame-src` restricts iframe sources, and the app registry (`status: 'approved'`) gates what gets embedded.
-
-**Amendment:** The design spec's iframe sandbox policy is revised to `sandbox="allow-scripts allow-same-origin"` for apps with `status: 'approved'` served from same-origin `/apps/*` paths only. The `credentialless` attribute is removed for these iframes. The DB default `sandbox_permissions` column should be updated to `ARRAY['allow-scripts', 'allow-same-origin']`.
+**Note:** The codebase currently uses `allow-same-origin` in `IframeManager.tsx`, which deviates from the original spec. This should be reverted to `allow-scripts` only as part of this implementation to align with the design spec's intent. The CV pipeline does not depend on `allow-same-origin`.
 
 ### Data Classification
 
