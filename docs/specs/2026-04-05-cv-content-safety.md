@@ -223,6 +223,35 @@ export function startMonitoring(iframeRefs: Map<string, HTMLIFrameElement>, brok
 - `classifier.worker.ts` — Cannot run in vitest; smoke test via Playwright or manual verification
 - Server `POST /api/moderate-image` — Supertest integration test (mock OpenAI)
 
+## Alignment with Design Spec (`docs/specs/2026-04-02-chatbridge-design.md`)
+
+### Sandbox Policy Amendment
+
+The original design spec states `sandbox="allow-scripts"` and "Never `allow-same-origin`." This CV pipeline requires `allow-same-origin` to access `iframe.contentDocument` for frame capture. The codebase already uses `allow-same-origin` in production (`IframeManager.tsx`).
+
+**Tradeoff:** With `allow-scripts allow-same-origin`, a compromised iframe can escape the sandbox. Mitigations: all apps are first-party admin-curated from `/apps/*`, CSP `frame-src` restricts iframe sources, and the app registry (`status: 'approved'`) gates what gets embedded.
+
+**Amendment:** The design spec's iframe sandbox policy is revised to `sandbox="allow-scripts allow-same-origin"` for apps with `status: 'approved'` served from same-origin `/apps/*` paths only. The `credentialless` attribute is removed for these iframes. The DB default `sandbox_permissions` column should be updated to `ARRAY['allow-scripts', 'allow-same-origin']`.
+
+### Data Classification
+
+Per the design spec's three-tier classification:
+- **Frame pixel data:** Tier 1 (ephemeral context). In-memory only in the Web Worker. Discarded immediately after classification. Never persisted to disk, Redis, or network (except as base64 to server for OpenAI relay, which is stateless).
+- **Classification results (`{appId, category, confidence, timestamp}`):** Tier 2 (session context). Logged to Langfuse for observability. Langfuse is a third-party service — this must be documented in the school data processing agreement. Contains no student identifiers (session pseudonyms only). Alternative: log to Redis with TTL instead of Langfuse for stricter ephemeral compliance.
+- **Frame content sent to OpenAI moderation:** Passes through the server as base64, relayed stateless to OpenAI. OpenAI's moderation endpoint is documented as not storing inputs. No student PII in the frame (app UI content, not camera/webcam).
+
+### COPPA/FERPA
+
+The design spec's privacy architecture applies unchanged:
+- Frames capture app UI, not student faces or camera input
+- No student identifiers attached to moderation requests
+- OpenAI moderation endpoint uses Zero Data Retention
+- Classification metadata uses session pseudonyms, not user IDs
+
+### Scope
+
+This feature extends the design spec's §8 Safety Pipeline. It is not in the original Tier 1/2/3 priority list but directly supports the design philosophy: "child safety is 90% of this project." The implementation adds a new middleware layer to the safety pipeline chain described in §8 Risk 1.
+
 ## What This Does NOT Cover
 
 - Teacher override UI (post-sprint)
