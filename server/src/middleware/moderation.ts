@@ -38,22 +38,26 @@ export function detectSystemPromptLeak(text: string): boolean {
   return false;
 }
 
-export async function moderateImage(imageUrl: string): Promise<{ flagged: boolean; categories: string[] }> {
+export async function moderateImage(imageUrl: string): Promise<{
+  flagged: boolean;
+  categories: Record<string, boolean>;
+  categoryScores: Record<string, number>;
+}> {
   try {
     const result = await openai.moderations.create({
       model: 'omni-moderation-latest',
       input: [{ type: 'image_url', image_url: { url: imageUrl } }],
     });
     const output = result.results[0];
-    if (!output.flagged) return { flagged: false, categories: [] };
-    const flagged = Object.entries(output.categories)
-      .filter(([, v]) => v)
-      .map(([k]) => k);
-    logger.warn({ flagged, imageUrl }, 'image moderation flagged');
-    return { flagged: true, categories: flagged };
+    const categories = output.categories as unknown as Record<string, boolean>;
+    const categoryScores = output.category_scores as unknown as Record<string, number>;
+    if (output.flagged) {
+      logger.warn({ categories, imageUrl: imageUrl.slice(0, 50) }, 'image moderation flagged');
+    }
+    return { flagged: output.flagged, categories, categoryScores };
   } catch (err) {
     logger.error({ err }, 'image moderation API failed — allowing content (fail-open)');
-    return { flagged: false, categories: [] };
+    return { flagged: false, categories: {}, categoryScores: {} };
   }
 }
 
