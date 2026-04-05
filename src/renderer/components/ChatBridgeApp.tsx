@@ -320,7 +320,7 @@ export function ChatBridgeApp() {
                 iframeUrl={app.iframeUrl}
                 isActive={app.status === 'active'}
                 height={iframeHeights.get(app.id)}
-                sandbox={app.id === 'spotify' ? 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts allow-same-origin'}
+                sandbox={app.id === 'spotify' ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
                 onRef={(el) => {
                   if (el) {
                     iframeRefs.current.set(app.id, el)
@@ -342,7 +342,7 @@ export function ChatBridgeApp() {
             appId={app.id}
             iframeUrl={app.iframeUrl}
             isActive={false}
-            sandbox={'allow-scripts allow-same-origin'}
+            sandbox={'allow-scripts'}
             onRef={(el) => {
               if (el) iframeRefs.current.set(app.id, el)
               else iframeRefs.current.delete(app.id)
