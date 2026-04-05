@@ -26,11 +26,11 @@ The CV pipeline is Layer 1 (universal). API-level moderation (e.g., Spotify lyri
 
 Iframes keep `sandbox="allow-scripts"` with NO `allow-same-origin`. The `credentialless` attribute stays. The parent never accesses `iframe.contentDocument`. Instead, capture works through the existing PostMessageBroker communication channel:
 
-1. Parent sends `capture.request` message to the active iframe via PostMessageBroker
+1. Parent sends `capture.request` message (with `requestId` for correlation) to the active iframe via PostMessageBroker
 2. The ChatBridge SDK (already loaded in every app) handles the request internally:
    - **Canvas-based apps (Go, DOS):** SDK finds the `<canvas>` element, calls `canvas.toDataURL('image/jpeg', 0.5)` — fast, low bandwidth
    - **DOM-based apps (Spotify, Chess):** SDK uses `modern-screenshot` (`domToPng`) on `document.body` — captures full DOM including images
-3. SDK sends the image data back via `capture.response` postMessage
+3. SDK sends the image data back via `capture.response` postMessage (including the `requestId` for correlation)
 4. Parent receives the data URL, resizes to 224×224 on a local canvas, sends to classification Worker
 
 **Why this approach:**
@@ -58,9 +58,15 @@ Iframes keep `sandbox="allow-scripts"` with NO `allow-same-origin`. The `credent
 
 Parent resizes received image to 224×224 on a local canvas before classification (MobileNet/NSFWJS native input size). This is the ML model input, not the display size — the app panel renders at full resolution for the user.
 
-### Cross-Origin Image Limitation
+### Capture Inside Null-Origin Iframes
 
-Spotify album art (`i.scdn.co`) may not render in `modern-screenshot` captures if CORS headers are missing. Track text/layout will still be captured. Album art is already checked at original resolution via the API-level moderation (Layer 2).
+With strict `sandbox="allow-scripts"` (no `allow-same-origin`), the iframe runs at origin `"null"`. Impact on capture:
+
+- **`canvas.toDataURL()`:** Works — the canvas is drawn by same-document scripts, not tainted by cross-origin data. Canvas-based apps (Go, DOS) are unaffected.
+- **`modern-screenshot`:** Core DOM serialization (SVG foreignObject → canvas) works for inline/system-font content. External resources (web fonts, cross-origin images) will fail to load from a `null` origin. Chess (pure DOM, system fonts) should work. Spotify album art (`i.scdn.co`) will be blank — already covered by API-level moderation (Layer 2).
+- **Validation needed:** `modern-screenshot` inside a `null`-origin iframe has not been tested. If it fails, the fallback for DOM-based apps is a simpler approach: SDK creates a canvas, uses `document.createElement('canvas')` + manual DOM-to-canvas rendering for basic layout capture. This produces a lower-fidelity capture but is sufficient for classification.
+
+**Note:** The research doc (`docs/research/iframe-canvas-capture.md`) validated the parent-side `contentDocument` approach, which was rejected in favor of SDK-based capture. The research should not be treated as validation of the current architecture for DOM-based apps.
 
 ## Classification Layer
 
@@ -91,7 +97,9 @@ Capture orchestration runs on main thread (sends `capture.request`, receives res
 - **Categories:** harassment, hate, illicit, self-harm, sexual, violence (each with sub-categories)
 - **In-flight cancellation:** AbortController cancels pending OpenAI request if a new frame arrives before response
 
-**Required server change:** Add `POST /api/moderate-image` route accepting `{ image: "data:image/png;base64,..." }`. Calls existing `moderateImage()` from `moderation.ts` but must return raw `category_scores` (float values), not just the boolean `flagged`/`categories` the current implementation returns. The `moderateImage()` function needs a small change to expose scores.
+**Required server changes:**
+1. Add `POST /api/moderate-image` route accepting `{ image: "data:image/png;base64,..." }`.
+2. Modify `moderateImage()` in `moderation.ts` — currently returns `{ flagged: boolean; categories: string[] }` and early-returns on `!output.flagged`, discarding `category_scores`. Must return the full response: `{ flagged: boolean; categories: Record<string, boolean>; categoryScores: Record<string, number> }`. The early-return on `!flagged` must be removed because the 0.15 NSFWJS early-warning trigger and per-category K-12 thresholds need scores even for unflagged content.
 
 ### Frame Deduplication
 
@@ -196,8 +204,9 @@ server/
 ### Module Interfaces
 
 ```typescript
-// capture.ts
-export function captureFrame(iframe: HTMLIFrameElement): Promise<ImageData | null>
+// capture.ts — sends capture.request, receives data URL string, converts to ImageData
+// Conversion: data URL → new Image() → onload → drawImage(img, 0, 0, 224, 224) → getImageData()
+export function captureFrame(iframe: HTMLIFrameElement, broker: PostMessageBroker): Promise<ImageData | null>
 
 // classifier.worker.ts (via postMessage)
 // Input:  { type: 'classify', imageData: ImageData, skipDedup?: boolean }
@@ -234,7 +243,14 @@ export function startMonitoring(iframeRefs: Map<string, HTMLIFrameElement>, brok
 
 The SDK-based capture approach preserves the original design spec's strict sandbox: `sandbox="allow-scripts"`, no `allow-same-origin`, `credentialless` attribute retained. The parent never accesses `iframe.contentDocument`. Capture happens inside the iframe via the ChatBridge SDK and communicates results through postMessage — the same channel already used for tool invocation and state management. No sandbox policy changes required.
 
-**Note:** The codebase currently uses `allow-same-origin` in `IframeManager.tsx`, which deviates from the original spec. This should be reverted to `allow-scripts` only as part of this implementation to align with the design spec's intent. The CV pipeline does not depend on `allow-same-origin`.
+**Prerequisite: PostMessageBroker strict-sandbox fix.** The codebase currently uses `allow-same-origin` in `IframeManager.tsx` because the PostMessageBroker was built assuming same-origin iframes. Two bugs prevent strict sandbox operation:
+
+1. `sendToIframe()` uses `window.location.origin` as `targetOrigin` — messages to `null`-origin iframes are silently dropped by the browser. Fix: use `'*'` as targetOrigin. (Already identified in `docs/plans/2026-04-03-chatbridge-remediation-l2.md` line 725.)
+2. Inbound origin validation rejects `event.origin === "null"` (the string `"null"` posted by sandboxed iframes). Fix: add `"null"` to the accepted origins set for sandboxed iframes.
+
+These fixes must ship BEFORE reverting IframeManager to `sandbox="allow-scripts"` only. Without them, ALL iframe communication breaks — tools, state, capture, everything. This is not a CV pipeline concern; it's a pre-existing security gap. The app system is designed for third-party apps via admin-curated allowlist — `allow-same-origin` should never have been there.
+
+After the broker fix, IframeManager reverts to strict sandbox and `credentialless` is retained.
 
 ### Data Classification
 
