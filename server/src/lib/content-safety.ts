@@ -52,8 +52,11 @@ async function checkAlbumArt(imageUrl: string): Promise<{ flagged: boolean; cate
   if (cached) return { flagged: !cached.safe, categories: cached.categories };
 
   const result = await moderateImage(imageUrl);
-  setCache(cacheKey, { safe: !result.flagged, categories: result.categories, checkedAt: Date.now() });
-  return result;
+  const flaggedCategories = Object.entries(result.categories)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
+  setCache(cacheKey, { safe: !result.flagged, categories: flaggedCategories, checkedAt: Date.now() });
+  return { flagged: result.flagged, categories: flaggedCategories };
 }
 
 async function checkLyrics(trackName: string, artistName: string, durationMs?: number): Promise<{ flagged: boolean; categories: string[] }> {
