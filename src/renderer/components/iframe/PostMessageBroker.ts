@@ -14,7 +14,9 @@ export class PostMessageBroker {
     if (this.allowedOrigins.size > 0) {
       const sameOrigin = event.origin === window.location.origin;
       const allowed = this.allowedOrigins.has(event.origin);
-      if (!sameOrigin && !allowed) {
+      // Sandboxed iframes without allow-same-origin have origin "null" — always allow
+      const sandboxedOrigin = event.origin === 'null';
+      if (!sameOrigin && !allowed && !sandboxedOrigin) {
         console.warn(`Rejected message from untrusted origin: ${event.origin}`);
         return;
       }
@@ -61,12 +63,12 @@ export class PostMessageBroker {
       payload,
     };
 
-    // Use same-origin target (apps served from /apps/ on same domain)
-    const targetOrigin = window.location.origin;
+    // Use '*' as targetOrigin — sandboxed iframes have null origin, so
+    // window.location.origin would cause messages to be silently dropped.
     if (port) {
-      iframe.contentWindow?.postMessage(envelope, targetOrigin, [port]);
+      iframe.contentWindow?.postMessage(envelope, '*', [port]);
     } else {
-      iframe.contentWindow?.postMessage(envelope, targetOrigin);
+      iframe.contentWindow?.postMessage(envelope, '*');
     }
   }
 
