@@ -107,6 +107,44 @@
       return
     }
 
+    // Handle capture.request: capture iframe content and send back as data URL
+    if (data.type === 'capture.request') {
+      var requestId = data.requestId || data.payload?.requestId
+      try {
+        var canvas = document.querySelector('canvas')
+        if (canvas && canvas.width > 0 && canvas.height > 0) {
+          // Canvas-based app: direct toDataURL
+          var dataUrl = canvas.toDataURL('image/jpeg', 0.5)
+          window.parent.postMessage(createEnvelope('capture.response', { image: dataUrl, requestId: requestId }), '*')
+        } else {
+          // DOM-based app: capture document body as canvas
+          var captureCanvas = document.createElement('canvas')
+          var body = document.body
+          var rect = body.getBoundingClientRect()
+          captureCanvas.width = Math.min(rect.width, 800)
+          captureCanvas.height = Math.min(rect.height, 800)
+          // Use SVG foreignObject approach (lightweight, no dependency)
+          var svgData = '<svg xmlns="http://www.w3.org/2000/svg" width="' + captureCanvas.width + '" height="' + captureCanvas.height + '">'
+            + '<foreignObject width="100%" height="100%">'
+            + '<div xmlns="http://www.w3.org/1999/xhtml">' + body.innerHTML + '</div>'
+            + '</foreignObject></svg>'
+          var img = new Image()
+          img.onload = function() {
+            captureCanvas.getContext('2d').drawImage(img, 0, 0)
+            var dataUrl = captureCanvas.toDataURL('image/jpeg', 0.5)
+            window.parent.postMessage(createEnvelope('capture.response', { image: dataUrl, requestId: requestId }), '*')
+          }
+          img.onerror = function() {
+            window.parent.postMessage(createEnvelope('capture.response', { image: null, error: 'capture failed', requestId: requestId }), '*')
+          }
+          img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData)
+        }
+      } catch (e) {
+        window.parent.postMessage(createEnvelope('capture.response', { image: null, error: String(e), requestId: requestId }), '*')
+      }
+      return
+    }
+
     // Handle other message types by mapping to camelCase handler
     const handlerName = wireToHandlerName(data.type)
     if (handlers[handlerName]) {
