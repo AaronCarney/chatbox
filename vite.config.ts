@@ -73,6 +73,9 @@ export default defineConfig(({ mode }) => {
       injectBaseTag(),
       injectReleaseDate(),
     ],
+    worker: {
+      format: 'es',
+    },
     build: {
       outDir: isProduction ? '../../dist' : undefined,
       target: 'es2020',

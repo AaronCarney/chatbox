@@ -8,6 +8,8 @@ import { ToolCallIndicator } from './chat/ToolCallIndicator.js'
 import { useChat } from '../hooks/useChat.js'
 import { useIframeApps } from '../hooks/useIframeApps.js'
 import { useToolExecution } from '../hooks/useToolExecution.js'
+import { startMonitoring } from '../lib/content-safety/index.js'
+import { SafetyOverlay } from './iframe/SafetyOverlay.js'
 
 interface AvailableApp {
   id: string
@@ -39,6 +41,7 @@ export function ChatBridgeApp() {
   const [completedActivities, setCompletedActivities] = useState<CompletedActivity[]>([])
   const [input, setInput] = useState('')
   const [iframeHeights, setIframeHeights] = useState<Map<string, number>>(new Map())
+  const [safetyOverlay, setSafetyOverlay] = useState<{ visible: boolean; hardBlock: boolean }>({ visible: false, hardBlock: false })
 
   const brokerRef = useRef<PostMessageBroker | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -95,7 +98,28 @@ export function ChatBridgeApp() {
       }
     })
 
-    return () => broker.destroy()
+    const apiUrl = import.meta.env.VITE_API_URL || ''
+    const stopMonitoring = startMonitoring(
+      () => {
+        const active = getActiveApp()
+        if (!active) return null
+        const el = iframeRefs.current.get(active.id)
+        if (!el) return null
+        return { id: active.id, iframeEl: el }
+      },
+      broker,
+      apiUrl,
+      (action, appId) => {
+        if (action === 'hard_block') setSafetyOverlay({ visible: true, hardBlock: true })
+        else if (action === 'blur') setSafetyOverlay({ visible: true, hardBlock: false })
+        else if (action === 'unblur') setSafetyOverlay({ visible: false, hardBlock: false })
+        if (action !== 'none' && action !== 'unblur') {
+          console.warn('[ContentSafety]', { action, appId, timestamp: Date.now() })
+        }
+      }
+    )
+
+    return () => { broker.destroy(); stopMonitoring() }
   }, [resolveToolCall])
 
   useEffect(() => {
@@ -330,6 +354,7 @@ export function ChatBridgeApp() {
                 }}
               />
             ))}
+          <SafetyOverlay visible={safetyOverlay.visible} hardBlock={safetyOverlay.hardBlock} />
         </div>
       )}
 
