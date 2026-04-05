@@ -26,6 +26,8 @@ The CV pipeline is Layer 1 (universal). API-level moderation (e.g., Spotify lyri
 
 All apps are same-origin (`/apps/*`) with `sandbox="allow-scripts allow-same-origin"`, so the parent can access `iframe.contentDocument`.
 
+**Required change:** `IframeManager.tsx` currently renders iframes with `credentialless=""`, which forces cross-origin isolation and **blocks `contentDocument` access** even for same-origin content. The `credentialless` attribute must be removed from iframes serving `/apps/*` content. This is a prerequisite for the entire capture layer.
+
 **Tier 1 — Canvas-based apps (Go, DOS):**
 Direct `drawImage()` from `iframe.contentDocument.querySelector('canvas')` onto a local canvas. Sub-millisecond, zero dependencies. GPU-accelerated blit.
 
@@ -39,7 +41,8 @@ Direct `drawImage()` from `iframe.contentDocument.querySelector('canvas')` onto 
 ### Capture Triggers
 
 **Event-driven + 5-second fallback:**
-- Immediate capture on PostMessageBroker events: `tool.result`, `task.completed`, `app.state`, `launch`
+- Immediate capture on PostMessageBroker events: `tool.result`, `task.completed`, `app.state`
+- Immediate capture when `launch_app` tool call resolves (app becomes active)
 - 5-second periodic timer for silent content changes (canvas-based games that update without sending messages)
 - No capture when no app is active (chat-only state)
 
@@ -81,9 +84,12 @@ Capture runs on main thread (needs DOM access). Classification runs in a **Web W
 
 - **Model:** `omni-moderation-latest` (free endpoint)
 - **Runs on:** Every 30 seconds OR immediately when NSFWJS flags above 0.15 (below action threshold, early warning)
-- **Input:** Frame as base64 data URL (`data:image/png;base64,...`) sent to server endpoint, relayed to OpenAI
+- **Input:** Frame as base64 data URL (`data:image/png;base64,...`) sent to new `POST /api/moderate-image` server endpoint, relayed to OpenAI
 - **Output:** 13 categories with per-category `flagged` boolean and `category_scores` (0.0-1.0)
 - **Categories:** harassment, hate, illicit, self-harm, sexual, violence (each with sub-categories)
+- **In-flight cancellation:** AbortController cancels pending OpenAI request if a new frame arrives before response
+
+**Required server change:** Add `POST /api/moderate-image` route accepting `{ image: "data:image/png;base64,..." }`. Calls existing `moderateImage()` from `moderation.ts` but must return raw `category_scores` (float values), not just the boolean `flagged`/`categories` the current implementation returns. The `moderateImage()` function needs a small change to expose scores.
 
 ### Frame Deduplication
 
@@ -167,14 +173,55 @@ Total new dependency footprint: ~3.5-4MB
 src/renderer/
   lib/
     content-safety/
-      capture.ts          — Two-tier frame capture (canvas direct + modern-screenshot)
-      classifier.worker.ts — Web Worker: NSFWJS + frame hash dedup
-      actions.ts           — Blur/overlay/unblur with hysteresis state machine
-      index.ts             — Orchestrator: triggers, intervals, worker comms
+      capture.ts            — Two-tier frame capture (canvas direct + modern-screenshot)
+      classifier.worker.ts  — Web Worker: NSFWJS + frame hash dedup
+      hysteresis.ts         — Pure state machine (flag/unflag logic, no DOM)
+      effects.ts            — DOM side effects (blur, overlay, CSS transitions)
+      index.ts              — Orchestrator: triggers, intervals, worker comms
   components/
     iframe/
-      SafetyOverlay.tsx    — Blur overlay + "Content isn't available" message
+      SafetyOverlay.tsx     — Blur overlay + "Content isn't available" message
+                              Rendered alongside IframeManager in ChatBridgeApp, not inside it
+server/
+  src/
+    routes/
+      moderation.ts         — POST /api/moderate-image (base64 → OpenAI relay, returns category_scores)
 ```
+
+### Module Interfaces
+
+```typescript
+// capture.ts
+export function captureFrame(iframe: HTMLIFrameElement): Promise<ImageData | null>
+
+// classifier.worker.ts (via postMessage)
+// Input:  { type: 'classify', imageData: ImageData, skipDedup?: boolean }
+// Output: { type: 'result', flagged: boolean, classes: Record<string, number>, hash: string }
+
+// hysteresis.ts
+export function updateState(result: ClassifyResult): { action: 'blur' | 'unblur' | 'none' }
+
+// effects.ts
+export function applyBlur(iframeEl: HTMLIFrameElement): void
+export function removeBlur(iframeEl: HTMLIFrameElement): void
+
+// index.ts
+export function startMonitoring(iframeRefs: Map<string, HTMLIFrameElement>, broker: PostMessageBroker): () => void
+```
+
+### Build Configuration
+
+- TF.js WASM binary files (`.wasm`) must be served as static assets — copy to `public/wasm/` or configure Vite `publicDir`
+- `setWasmPaths('/wasm/')` in the Worker to resolve binaries
+- NSFWJS + TF.js must be lazy-loaded via dynamic `import()` — not in the initial bundle
+- Vite `rollupOptions.manualChunks` needs an entry for ML vendor libs
+
+### Test Strategy
+
+- `hysteresis.ts` — Pure unit tests in vitest (no DOM needed)
+- `capture.ts`, `SafetyOverlay.tsx` — Require `// @vitest-environment jsdom` pragma
+- `classifier.worker.ts` — Cannot run in vitest; smoke test via Playwright or manual verification
+- Server `POST /api/moderate-image` — Supertest integration test (mock OpenAI)
 
 ## What This Does NOT Cover
 
