@@ -291,3 +291,7 @@ This feature extends the design spec's §8 Safety Pipeline. It is not in the ori
 - `docs/research/On-device ML models content moderation.md` — Model selection, runtime comparison
 - `docs/research/finte tuning datasets content safety.md` — Datasets, transfer learning pipeline
 - `docs/research/CV pipeline.md` — Adaptive performance, action tiers, COPPA/BIPA
+
+## Future Work — Separate Specs Needed
+
+- **Agent validation / golden sets:** No eval suite exists for the AI tutor's behavioral correctness (tool use accuracy, Socratic method adherence, age-appropriate responses). Langfuse traces exist but no automated pass/fail testing. Needs its own spec.
