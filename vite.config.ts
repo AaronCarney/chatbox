@@ -96,6 +96,9 @@ export default defineConfig(({ mode }) => {
           },
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('@tensorflow') || id.includes('nsfwjs')) {
+                return 'vendor-ml'
+              }
               if (id.includes('@ai-sdk') || id.includes('ai/')) {
                 return 'vendor-ai'
               }
