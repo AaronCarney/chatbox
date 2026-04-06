@@ -3,9 +3,9 @@ var NatureApp = (function () {
 
   var FALLBACK_IMG = 'data:image/svg+xml,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">' +
-    '<rect fill="#e0d5c5" width="200" height="200"/>' +
+    '<rect fill="#2a2a45" width="200" height="200"/>' +
     '<text x="100" y="90" text-anchor="middle" font-size="48">🌿</text>' +
-    '<text x="100" y="120" text-anchor="middle" font-size="14" fill="#8B6F47">No image</text>' +
+    '<text x="100" y="120" text-anchor="middle" font-size="14" fill="#c4a87a">No image</text>' +
     '</svg>'
   );
 
@@ -29,6 +29,7 @@ var NatureApp = (function () {
 
   var currentView = 'welcome';
   var previousView = 'welcome';
+  var lastSearchResults = [];
 
   function el(tag, attrs, children) {
     var node = document.createElement(tag);
@@ -111,6 +112,11 @@ var NatureApp = (function () {
     while (container.firstChild) container.removeChild(container.firstChild);
   }
 
+  function stripHtml(str) {
+    if (!str) return '';
+    return str.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  }
+
   var API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? ''
     : 'https://chatbox-production-d06b.up.railway.app';
@@ -160,6 +166,7 @@ var NatureApp = (function () {
 
     var results = data.results || data.species || data;
     if (!Array.isArray(results)) results = [];
+    lastSearchResults = results;
 
     container.appendChild(makeBackBtn('welcome'));
     container.appendChild(el('h2', { className: 'section-header', textContent: 'Search Results' }));
@@ -244,10 +251,10 @@ var NatureApp = (function () {
       }
     }
 
-    // Description (Wikipedia summary)
+    // Description (Wikipedia summary — may contain HTML tags)
     var desc = species.description || species.wikipedia_summary;
     if (desc) {
-      container.appendChild(makeSection('About', el('p', { textContent: desc })));
+      container.appendChild(makeSection('About', el('p', { textContent: stripHtml(desc) })));
     }
 
     // Habitat
@@ -304,6 +311,26 @@ var NatureApp = (function () {
       });
       simSection.appendChild(simGrid);
       container.appendChild(simSection);
+    }
+
+    // Related search results (from prior search, excluding current species)
+    var currentId = species.id || '';
+    var related = lastSearchResults.filter(function (s) { return s.id !== currentId; });
+    if (related.length > 0) {
+      var relSection = el('div', { className: 'detail-section' }, [
+        el('h3', { textContent: 'Related Results' })
+      ]);
+      var relGrid = el('div', { className: 'species-grid related-grid' });
+      related.forEach(function (s) {
+        var card = makeSpeciesCard(s, function () {
+          if (s.id && s.id.indexOf('inat:') === 0) {
+            fetchSpeciesDetail(s.id);
+          }
+        });
+        relGrid.appendChild(card);
+      });
+      relSection.appendChild(relGrid);
+      container.appendChild(relSection);
     }
 
     showView('detail');
