@@ -291,16 +291,18 @@ ChatBridge.on('launch', function(config) {
   setupCanvasListener();
 });
 
-// Re-render on resize so board fills the panel
+// Re-render when body size changes (handles iframe initial sizing + window resize)
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(function() {
+    if (engine) GoBoard.render(engine);
+  }).observe(document.body);
+}
 window.addEventListener('resize', function() {
   if (engine) GoBoard.render(engine);
 });
 
 // Initialize on load (ChatBridge.on('launch') re-inits with saved state if available)
 init();
-// Deferred re-renders — iframe may not be sized yet on first paint
-setTimeout(function() { if (engine) GoBoard.render(engine); }, 300);
-setTimeout(function() { if (engine) GoBoard.render(engine); }, 800);
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', setupCanvasListener);

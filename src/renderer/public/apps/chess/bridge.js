@@ -350,13 +350,16 @@
     init(config && config.savedState);
   });
 
-  // Re-render on resize so board fills panel
+  // Re-render when container size changes (handles iframe initial sizing + window resize)
+  var boardContainer = document.getElementById('board-container');
+  if (boardContainer && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(function() {
+      if (game) ChessBoard.render(game);
+    }).observe(boardContainer);
+  }
   window.addEventListener('resize', function() {
     if (game) ChessBoard.render(game);
   });
 
   init();
-  // Deferred re-renders — iframe may not be sized yet on first paint
-  setTimeout(function() { if (game) ChessBoard.render(game); }, 300);
-  setTimeout(function() { if (game) ChessBoard.render(game); }, 800);
 })();

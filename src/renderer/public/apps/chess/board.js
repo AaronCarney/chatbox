@@ -18,8 +18,20 @@ window.ChessBoard = (function () {
     var container = document.getElementById('board-container');
     while (container.firstChild) container.removeChild(container.firstChild);
 
+    // Measure available space from the actual container
+    var cw = container.clientWidth;
+    var ch = container.clientHeight;
+    // Fallback to viewport if container not yet laid out
+    if (cw < 50 || ch < 50) {
+      cw = window.innerWidth - 16;
+      ch = window.innerHeight - 150;
+    }
+    var boardSize = Math.floor(Math.min(cw, ch) * 0.95);
+
     var board = document.createElement('div');
     board.className = 'board';
+    board.style.width = boardSize + 'px';
+    board.style.height = boardSize + 'px';
 
     var legalTargets = selectedSquare
       ? game.moves({ square: selectedSquare, verbose: true }).map(function(m) { return m.to; })
