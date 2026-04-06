@@ -289,6 +289,11 @@ ChatBridge.on('launch', function(config) {
   setupCanvasListener();
 });
 
+// Re-render on resize so board fills the panel
+window.addEventListener('resize', function() {
+  if (engine) GoBoard.render(engine);
+});
+
 // Initialize on load (ChatBridge.on('launch') re-inits with saved state if available)
 init();
 
