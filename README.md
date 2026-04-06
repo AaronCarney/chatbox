@@ -2,6 +2,9 @@
 
 K-12 AI chat platform with third-party app integration. An AI chatbot orchestrates educational apps embedded via iframes, letting students interact with tools like chess, music, and math without leaving the chat.
 
+**Live:** https://chatbridge.aaroncarney.me
+**API:** https://chatbox-production-d06b.up.railway.app
+
 ## Architecture
 
 ```
