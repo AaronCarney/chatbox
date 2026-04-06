@@ -322,30 +322,7 @@ var NatureApp = (function () {
     }
     container.appendChild(el('div', { className: 'detail-header' }, headerChildren));
 
-    // Quick stats row
-    var stats = [];
-    if (species.observations_count) {
-      stats.push(el('div', { className: 'stat-item' }, [
-        el('div', { className: 'stat-value', textContent: species.observations_count.toLocaleString() }),
-        el('div', { className: 'stat-label', textContent: 'Observations' })
-      ]));
-    }
-    if (species.images && species.images.length > 0) {
-      stats.push(el('div', { className: 'stat-item' }, [
-        el('div', { className: 'stat-value', textContent: String(species.images.length) }),
-        el('div', { className: 'stat-label', textContent: 'Photos' })
-      ]));
-    }
     var csObj = species.conservation;
-    if (csObj && csObj.status_name) {
-      stats.push(el('div', { className: 'stat-item' }, [
-        el('div', { className: 'stat-value', textContent: csObj.status_name }),
-        el('div', { className: 'stat-label', textContent: csObj.authority || 'Conservation' })
-      ]));
-    }
-    if (stats.length > 0) {
-      container.appendChild(el('div', { className: 'stats-row' }, stats));
-    }
 
     // Taxonomy — show rank labels, clickable to search
     var taxonomy = species.taxonomy;
