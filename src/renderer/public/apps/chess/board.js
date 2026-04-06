@@ -18,15 +18,10 @@ window.ChessBoard = (function () {
     var container = document.getElementById('board-container');
     while (container.firstChild) container.removeChild(container.firstChild);
 
-    // Measure available space from the actual container
-    var cw = container.clientWidth;
-    var ch = container.clientHeight;
-    // Fallback to viewport if container not yet laid out
-    if (cw < 50 || ch < 50) {
-      cw = window.innerWidth - 16;
-      ch = window.innerHeight - 150;
-    }
-    var boardSize = Math.floor(Math.min(cw, ch) * 0.95);
+    // Size board to fit within container — leave room for padding/stroke
+    var cw = container.clientWidth || window.innerWidth - 16;
+    var ch = container.clientHeight || window.innerHeight - 150;
+    var boardSize = Math.floor(Math.min(cw, ch, cw * 0.9) - 8);
 
     var board = document.createElement('div');
     board.className = 'board';
