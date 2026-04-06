@@ -107,8 +107,14 @@ function Root() {
         </Box>
       </SignedIn>
       <SignedOut>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', backgroundColor: '#16161e' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', backgroundColor: '#16161e' }}>
           <SignIn />
+          <a
+            href="/security.html"
+            style={{ marginTop: '24px', color: '#7ec87e', fontSize: '14px', textDecoration: 'none' }}
+          >
+            Safety & Security Documentation
+          </a>
         </div>
       </SignedOut>
     </>
