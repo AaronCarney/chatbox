@@ -194,11 +194,12 @@ export function ChatBridgeApp() {
     isSendingRef.current = true
     setInput('')
 
+    let result: any = null
     try {
     const token = await getToken().catch(() => null)
     const activeApp = getActiveApp()
 
-    const result = await sendMessage(trimmed, {
+    result = await sendMessage(trimmed, {
       activeAppId: activeApp?.id ?? null,
       authToken: token,
     })

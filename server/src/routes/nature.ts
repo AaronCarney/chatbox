@@ -131,6 +131,8 @@ natureRouter.get('/nature/search', async (req: Request, res: Response) => {
             type: 'plant',
             image_url: p.default_image?.medium_url || null,
             iucn_status: null,
+            observations_count: null,
+            rank: null,
           });
         }
       }

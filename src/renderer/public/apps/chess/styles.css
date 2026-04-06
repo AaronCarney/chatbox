@@ -161,8 +161,9 @@ body {
 }
 
 .square .piece-white {
-  color: #fff;
-  text-shadow: 0 0 2px rgba(0,0,0,0.5), 0 0 1px rgba(0,0,0,0.8);
+  color: #f5f5f0;
+  -webkit-text-stroke: 1px #333;
+  paint-order: stroke fill;
 }
 
 .status {

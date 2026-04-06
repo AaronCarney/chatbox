@@ -10,7 +10,7 @@ export interface IframeManagerProps {
   onRef?: (el: HTMLIFrameElement | null) => void
 }
 
-export function IframeManager({ appId, iframeUrl, isActive, sandbox, onRef }: IframeManagerProps) {
+export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onRef }: IframeManagerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function IframeManager({ appId, iframeUrl, isActive, sandbox, onRef }: If
       title={appId}
       style={{
         width: '100%',
-        height: '100%',
+        height: height ? `${height}px` : '100%',
         border: 'none',
         display: isActive ? 'block' : 'none',
       }}

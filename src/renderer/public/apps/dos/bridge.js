@@ -117,33 +117,38 @@
   btnBack.addEventListener('click', goBack);
 
   // --- ChatBridge SDK ---
-  if (window.ChatBridge) {
-    ChatBridge.onToolInvoke(function (tool, args) {
-      if (tool === 'list_games') {
-        return {
+  ChatBridge.on('toolInvoke', function (payload, requestId) {
+    var args = payload.arguments || {};
+    switch (payload.name) {
+      case 'list_games':
+        ChatBridge.respondToTool(requestId, {
           games: GAMES.map(function (g) {
             return { id: g.id, name: g.name, category: g.category };
           }),
-        };
-      }
-      if (tool === 'launch_game') {
-        var id = args && args.game_id;
-        var game = GAMES.find(function (g) { return g.id === id; });
-        if (!game) return { error: 'Game not found: ' + id };
-        launchGame(id);
-        return { status: 'launched', game: game.name };
-      }
-      return { error: 'Unknown tool: ' + tool };
-    });
+        });
+        break;
+      case 'launch_game':
+        var id = args.game_id;
+        var found = GAMES.find(function (g) { return g.id === id; });
+        if (!found) {
+          ChatBridge.respondToTool(requestId, { error: 'Game not found: ' + id });
+        } else {
+          launchGame(id);
+          ChatBridge.respondToTool(requestId, { status: 'launched', game: found.name });
+        }
+        break;
+      default:
+        ChatBridge.respondToTool(requestId, { error: 'Unknown tool: ' + payload.name });
+    }
+  });
 
-    ChatBridge.onStateRequest(function () {
-      return {
-        view: currentGame ? 'playing' : 'catalog',
-        current_game: currentGame ? { id: currentGame.id, name: currentGame.name } : null,
-        available_games: GAMES.length,
-      };
-    });
-  }
+  ChatBridge.onStateRequest(function () {
+    return {
+      view: currentGame ? 'playing' : 'catalog',
+      current_game: currentGame ? { id: currentGame.id, name: currentGame.name } : null,
+      available_games: GAMES.length,
+    };
+  });
 
   // --- Init ---
   renderCatalog();

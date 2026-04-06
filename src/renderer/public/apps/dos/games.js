@@ -3,7 +3,6 @@ window.DOS_GAMES = [
   { id: 'oregon-trail',  name: 'Oregon Trail Deluxe',  category: 'educational', cover: 'png' },
   { id: 'civilization',  name: 'Civilization',          category: 'strategy',    cover: 'jpg' },
   { id: 'simcity2000',   name: 'SimCity 2000',          category: 'strategy',    cover: 'png' },
-  { id: 'doom2',         name: 'Doom II',               category: 'action',      cover: 'png' },
   { id: 'zelda',         name: 'Zelda Classic',         category: 'adventure',   cover: 'png' },
   { id: 'tetris',        name: 'Tetris',                category: 'puzzle',      cover: 'gif' },
   { id: 'monopoly',      name: 'Monopoly Deluxe',       category: 'board',       cover: 'png' },
