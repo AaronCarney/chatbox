@@ -385,15 +385,16 @@ export function ChatBridgeApp() {
   const hasActiveApp = Array.from(apps.values()).some((app) => app.status === 'active')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', backgroundColor: '#16161e' }}>
-      {/* App panel — fixed height when active, hidden when no app */}
+    <div style={{ display: 'flex', flexDirection: 'row', height: '100%', overflow: 'hidden', backgroundColor: '#16161e' }}>
+      {/* App panel — left side when active, hidden when no app */}
       {hasActiveApp && (
         <div style={{
-          flex: '0 0 65vh',
-          borderBottom: '2px solid #2d2d3d',
+          flex: '1 1 60%',
+          borderRight: '2px solid #2d2d3d',
           backgroundColor: '#1a1a2e',
           position: 'relative',
-          overflow: 'hidden',
+          overflow: 'auto',
+          minWidth: 0,
         }}>
           {Array.from(apps.values())
             .filter((app) => app.status !== 'serialized')
@@ -435,12 +436,13 @@ export function ChatBridgeApp() {
           />
         ))}
 
-      {/* Chat panel — independent scroll */}
+      {/* Chat panel — right side, or full width when no app */}
       <div style={{
-        flex: 1,
+        flex: hasActiveApp ? '1 1 40%' : '1 1 100%',
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        minWidth: 0,
         backgroundColor: '#16161e',
       }}>
         <div style={{
