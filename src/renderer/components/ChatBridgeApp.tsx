@@ -416,6 +416,8 @@ export function ChatBridgeApp() {
           flexDirection: 'column',
           gap: '8px',
         }}>
+          {/* Spacer pushes messages to bottom when few */}
+          <div style={{ flexGrow: 1 }} />
           {messages.map((msg, i) => {
             if (msg.role === 'tool') return null
             if (msg.role === 'assistant' && !msg.content && msg.tool_calls) return null
@@ -526,15 +528,16 @@ export function ChatBridgeApp() {
         </div>
       </div>
 
-      {/* App panel — right side when active */}
+      {/* App panel — right side, fills entire height */}
       {hasActiveApp && (
         <div style={{
           flex: '1 1 65%',
           borderLeft: '2px solid #2d2d3d',
           backgroundColor: '#1a1a2e',
           position: 'relative',
-          overflow: 'auto',
+          overflow: 'hidden',
           minWidth: 0,
+          height: '100%',
         }}>
           {Array.from(apps.values())
             .filter((app) => app.status !== 'serialized')
