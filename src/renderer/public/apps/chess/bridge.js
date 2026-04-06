@@ -358,5 +358,12 @@
     init(config && config.savedState);
   });
 
+  // Re-render on resize so board fills panel
+  window.addEventListener('resize', function() {
+    if (game) ChessBoard.render(game);
+  });
+
   init();
+  // Deferred re-render in case iframe wasn't sized yet
+  setTimeout(function() { if (game) ChessBoard.render(game); }, 200);
 })();
