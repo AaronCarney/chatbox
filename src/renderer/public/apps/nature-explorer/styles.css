@@ -158,7 +158,8 @@ body {
 
 /* Detail View */
 .detail-view {
-  margin: 0;
+  width: 90%;
+  margin: 0 auto;
 }
 
 .detail-hero {
@@ -315,7 +316,8 @@ body {
 
 /* Habitat View */
 .habitat-view {
-  margin: 0;
+  width: 90%;
+  margin: 0 auto;
 }
 
 .habitat-banner {
@@ -336,7 +338,8 @@ body {
 
 /* Comparison View */
 .comparison-view {
-  margin: 0;
+  width: 90%;
+  margin: 0 auto;
 }
 
 .comparison-header {
