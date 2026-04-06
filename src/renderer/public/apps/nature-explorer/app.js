@@ -66,8 +66,7 @@ var NatureApp = (function () {
 
   function goBack() {
     var prev = viewHistory.length > 0 ? viewHistory.pop() : 'welcome';
-    // Don't push to history when going back
-    var views = ['welcome', 'results', 'detail', 'habitat', 'comparison'];
+    var views = ['welcome', 'results', 'detail', 'habitat', 'comparison', 'sightings', 'similar', 'subspecies'];
     views.forEach(function (v) {
       var node = document.getElementById(v);
       if (node) node.style.display = v === prev ? 'block' : 'none';
@@ -85,7 +84,7 @@ var NatureApp = (function () {
   }
 
   function showView(viewName) {
-    var views = ['welcome', 'results', 'detail', 'habitat', 'comparison'];
+    var views = ['welcome', 'results', 'detail', 'habitat', 'comparison', 'sightings', 'similar', 'subspecies'];
     views.forEach(function (v) {
       var node = document.getElementById(v);
       if (node) node.style.display = v === viewName ? 'block' : 'none';
@@ -157,6 +156,30 @@ var NatureApp = (function () {
         }
       })
       .catch(function () { showError('detail', 'Failed to load species details.'); });
+  }
+
+  function fetchSightings(speciesId, speciesName) {
+    showLoading('sightings');
+    fetch(API_BASE + '/api/nature/species/' + encodeURIComponent(speciesId) + '/observations')
+      .then(function (res) { return res.json(); })
+      .then(function (data) { renderSightings(data, speciesName); })
+      .catch(function () { showError('sightings', 'Failed to load sightings.'); });
+  }
+
+  function fetchSimilar(speciesId, speciesName) {
+    showLoading('similar');
+    fetch(API_BASE + '/api/nature/species/' + encodeURIComponent(speciesId) + '/similar')
+      .then(function (res) { return res.json(); })
+      .then(function (data) { renderSimilarPage(data, speciesName); })
+      .catch(function () { showError('similar', 'Failed to load similar species.'); });
+  }
+
+  function fetchSubspecies(speciesId, speciesName) {
+    showLoading('subspecies');
+    fetch(API_BASE + '/api/nature/species/' + encodeURIComponent(speciesId) + '/children')
+      .then(function (res) { return res.json(); })
+      .then(function (data) { renderSubspecies(data, speciesName); })
+      .catch(function () { showError('subspecies', 'Failed to load subspecies.'); });
   }
 
   // --- Species Card ---
@@ -420,8 +443,38 @@ var NatureApp = (function () {
       container.appendChild(simSection);
     }
 
+    // Explore More — sub-topic navigation cards
+    var speciesId = species.id || '';
+    var speciesName = species.common_name || species.commonName || species.scientific_name || '';
+    if (speciesId.indexOf('inat:') === 0) {
+      var exploreSection = el('div', { className: 'detail-section' }, [
+        el('h3', { textContent: 'Explore More' })
+      ]);
+      var exploreGrid = el('div', { className: 'explore-grid' });
+
+      var topics = [
+        { icon: '📍', title: 'Recent Sightings', desc: 'Where and when spotted around the world', action: function () { fetchSightings(speciesId, speciesName); } },
+        { icon: '🔗', title: 'Similar Species', desc: 'Closely related species in the same group', action: function () { fetchSimilar(speciesId, speciesName); } },
+        { icon: '🌿', title: 'Subspecies & Varieties', desc: 'Different types and subspecies', action: function () { fetchSubspecies(speciesId, speciesName); } },
+      ];
+
+      topics.forEach(function (topic) {
+        var card = el('div', { className: 'explore-card', onClick: topic.action }, [
+          el('div', { className: 'explore-card-icon', textContent: topic.icon }),
+          el('div', { className: 'explore-card-text' }, [
+            el('div', { className: 'explore-card-title', textContent: topic.title }),
+            el('div', { className: 'explore-card-desc', textContent: topic.desc }),
+          ])
+        ]);
+        exploreGrid.appendChild(card);
+      });
+
+      exploreSection.appendChild(exploreGrid);
+      container.appendChild(exploreSection);
+    }
+
     // Related search results (from prior search, excluding current species)
-    var currentId = species.id || '';
+    var currentId = speciesId;
     var related = lastSearchResults.filter(function (s) { return s.id !== currentId; });
     if (related.length > 0) {
       var relSection = el('div', { className: 'detail-section' }, [
@@ -543,6 +596,99 @@ var NatureApp = (function () {
       el('h3', { textContent: title }),
       content
     ]);
+  }
+
+  // --- Render Sightings Page ---
+  function renderSightings(data, speciesName) {
+    var container = document.getElementById('sightings');
+    clearContainer(container);
+    container.appendChild(makeBackBtn());
+    container.appendChild(el('h2', { className: 'section-header', textContent: 'Recent Sightings' }));
+    container.appendChild(el('p', { className: 'section-subheader', textContent: speciesName + ' — ' + (data.total || 0).toLocaleString() + ' total observations' }));
+
+    var observations = data.observations || [];
+    if (observations.length === 0) {
+      container.appendChild(el('div', { className: 'no-results' }, [
+        el('div', { className: 'no-results-icon', textContent: '📍' }),
+        el('p', { textContent: 'No recent sightings found.' })
+      ]));
+      showView('sightings');
+      return;
+    }
+
+    var list = el('div', { className: 'sightings-list' });
+    observations.forEach(function (obs) {
+      var children = [];
+      if (obs.photo) {
+        children.push(makeImgWithFallback(obs.photo, 'Observation', 'sighting-photo'));
+      }
+      var infoChildren = [];
+      if (obs.place) infoChildren.push(el('div', { className: 'sighting-place', textContent: '📍 ' + obs.place }));
+      if (obs.observed_on) infoChildren.push(el('div', { className: 'sighting-date', textContent: '📅 ' + obs.observed_on }));
+      if (obs.user) infoChildren.push(el('div', { className: 'sighting-user', textContent: '👤 ' + obs.user }));
+      children.push(el('div', { className: 'sighting-info' }, infoChildren));
+      list.appendChild(el('div', { className: 'sighting-card' }, children));
+    });
+    container.appendChild(list);
+    showView('sightings');
+  }
+
+  // --- Render Similar Species Page ---
+  function renderSimilarPage(data, speciesName) {
+    var container = document.getElementById('similar');
+    clearContainer(container);
+    container.appendChild(makeBackBtn());
+    container.appendChild(el('h2', { className: 'section-header', textContent: 'Similar Species' }));
+    container.appendChild(el('p', { className: 'section-subheader', textContent: 'Species related to ' + speciesName }));
+
+    var similar = data.similar || [];
+    if (similar.length === 0) {
+      container.appendChild(el('div', { className: 'no-results' }, [
+        el('div', { className: 'no-results-icon', textContent: '🔗' }),
+        el('p', { textContent: 'No similar species found.' })
+      ]));
+      showView('similar');
+      return;
+    }
+
+    var grid = el('div', { className: 'species-grid' });
+    similar.forEach(function (s) {
+      var card = makeSpeciesCard(s, function () {
+        if (s.id && s.id.indexOf('inat:') === 0) fetchSpeciesDetail(s.id);
+      });
+      grid.appendChild(card);
+    });
+    container.appendChild(grid);
+    showView('similar');
+  }
+
+  // --- Render Subspecies Page ---
+  function renderSubspecies(data, speciesName) {
+    var container = document.getElementById('subspecies');
+    clearContainer(container);
+    container.appendChild(makeBackBtn());
+    container.appendChild(el('h2', { className: 'section-header', textContent: 'Subspecies & Varieties' }));
+    container.appendChild(el('p', { className: 'section-subheader', textContent: 'Types of ' + speciesName }));
+
+    var children = data.children || [];
+    if (children.length === 0) {
+      container.appendChild(el('div', { className: 'no-results' }, [
+        el('div', { className: 'no-results-icon', textContent: '🌿' }),
+        el('p', { textContent: 'No subspecies or varieties found.' })
+      ]));
+      showView('subspecies');
+      return;
+    }
+
+    var grid = el('div', { className: 'species-grid' });
+    children.forEach(function (s) {
+      var card = makeSpeciesCard(s, function () {
+        if (s.id && s.id.indexOf('inat:') === 0) fetchSpeciesDetail(s.id);
+      });
+      grid.appendChild(card);
+    });
+    container.appendChild(grid);
+    showView('subspecies');
   }
 
   function getCurrentView() {

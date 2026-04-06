@@ -318,4 +318,97 @@ natureRouter.get('/nature/random', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/nature/species/:id/observations — recent sightings with locations
+natureRouter.get('/nature/species/:id/observations', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id as string;
+    const [source, numericId] = rawId.split(':');
+    if (source !== 'inat' || !numericId || !/^\d+$/.test(numericId)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+
+    const data = await inatFetch(
+      `/observations?taxon_id=${numericId}&quality_grade=research&photos=true&per_page=12&order=desc&order_by=created_at`
+    );
+
+    const observations = (data.results || []).map((obs: any) => ({
+      id: obs.id,
+      observed_on: obs.observed_on_string || obs.observed_on || null,
+      place: obs.place_guess || null,
+      location: obs.location ? { lat: parseFloat(obs.location.split(',')[0]), lng: parseFloat(obs.location.split(',')[1]) } : null,
+      photo: obs.photos?.[0]?.url?.replace('square', 'medium') || null,
+      user: obs.user?.login || null,
+    }));
+
+    res.json({ species_id: rawId, observations, total: data.total_results || observations.length });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: msg }, 'nature observations failed');
+    res.status(500).json({ error: 'Failed to fetch observations' });
+  }
+});
+
+// GET /api/nature/species/:id/similar — similar/related species
+natureRouter.get('/nature/species/:id/similar', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id as string;
+    const [source, numericId] = rawId.split(':');
+    if (source !== 'inat' || !numericId || !/^\d+$/.test(numericId)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+
+    // Get the taxon to find its parent, then fetch siblings
+    const taxonData = await inatFetch(`/taxa/${numericId}`);
+    const taxon = taxonData.results?.[0];
+    if (!taxon) { res.status(404).json({ error: 'Species not found' }); return; }
+
+    const parentId = taxon.parent_id;
+    if (!parentId) { res.json({ species_id: rawId, similar: [] }); return; }
+
+    const siblingsData = await inatFetch(
+      `/taxa?parent_id=${parentId}&per_page=12&order=desc&order_by=observations_count`
+    );
+
+    const similar = (siblingsData.results || [])
+      .filter((t: any) => t.id !== parseInt(numericId))
+      .map(normalizeTaxon)
+      .filter((r: NormalizedSpecies | null): r is NormalizedSpecies => r !== null)
+      .slice(0, 10);
+
+    res.json({ species_id: rawId, similar, total: similar.length });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: msg }, 'nature similar species failed');
+    res.status(500).json({ error: 'Failed to fetch similar species' });
+  }
+});
+
+// GET /api/nature/species/:id/children — subspecies/varieties
+natureRouter.get('/nature/species/:id/children', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id as string;
+    const [source, numericId] = rawId.split(':');
+    if (source !== 'inat' || !numericId || !/^\d+$/.test(numericId)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+
+    const data = await inatFetch(
+      `/taxa?parent_id=${numericId}&per_page=20&order=desc&order_by=observations_count`
+    );
+
+    const children = (data.results || [])
+      .map(normalizeTaxon)
+      .filter((r: NormalizedSpecies | null): r is NormalizedSpecies => r !== null);
+
+    res.json({ species_id: rawId, children, total: children.length });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: msg }, 'nature children failed');
+    res.status(500).json({ error: 'Failed to fetch subspecies' });
+  }
+});
+
 export { natureRouter };
