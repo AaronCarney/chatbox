@@ -4,6 +4,8 @@
 
 GPT-4o pricing: $2.50/1M input tokens, $10/1M output tokens.
 
+OpenAI omni-moderation-latest pricing: $2.00/1K images (image moderation).
+
 ## Assumptions
 
 | Variable | Value |
@@ -56,6 +58,30 @@ Token cost per user/month:
 3. **Session-scoped history** — ephemeral Redis (no persistence) limits context growth. History trimmed to fit token budget.
 4. **Rate limiting** — 20 req/min per user, 100 req/15min burst. Prevents cost spikes from automated abuse.
 5. **Tool call efficiency** — static tool routing (3 apps) avoids function-calling overhead of dynamic tool discovery.
+
+## Content Safety Pipeline Costs
+
+NSFWJS runs client-side (zero server cost). OpenAI image moderation fires every 30s per active session + early-warning triggers.
+
+| Variable | Value |
+|---|---|
+| OpenAI moderation calls per active minute | ~2 (periodic) + ~1 (early-warning, worst case) |
+| Avg active app time per session | 5 minutes |
+| Moderation calls per session | ~10-15 |
+
+Per-session moderation cost: ~15 calls x $0.002/call = **$0.03/session**
+
+| Scale | Monthly Users | Sessions/mo | Moderation Cost | Combined with LLM |
+|---|---|---|---|---|
+| Pilot | 100 | 300 | $9 | $14.03 |
+| Small | 1,000 | 3,000 | $90 | $105.32 |
+| Medium | 10,000 | 30,000 | $900 | $953.18 |
+| Large | 100,000 | 300,000 | $9,000 | $9,331.80 |
+
+At scale, image moderation dominates cost. Mitigation strategies:
+1. **Skip moderation for clean sessions** — after 5 consecutive clean OpenAI results, reduce to 60s interval
+2. **NSFWJS-only for low-risk apps** — chess/Go boards rarely contain NSFW content; skip server moderation for known-safe apps
+3. **Batch API** — OpenAI batch moderation (if available) at 50% discount
 
 ## Notes
 

@@ -241,6 +241,40 @@ Get track recommendations seeded by track IDs.
 
 ---
 
+## Content Safety
+
+### POST /api/moderate-image
+
+Classify an image via OpenAI omni-moderation. Used by the client-side content safety pipeline for server-side verification.
+
+**Auth:** Not required (called from the browser's content safety orchestrator)
+
+**Request body:**
+
+```json
+{
+  "image": "data:image/jpeg;base64,/9j/4AAQ..."
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `image` | string | yes | Base64 data URL (`data:image/...`). Rejected if not a data URL. |
+
+**Response:**
+
+```json
+{
+  "flagged": true,
+  "categories": { "sexual": true, "violence": false },
+  "categoryScores": { "sexual": 0.85, "violence": 0.01, "sexual/minors": 0.001 }
+}
+```
+
+On server error, returns a fail-open response: `{ "flagged": false, "categories": {}, "categoryScores": {} }` with status 500.
+
+---
+
 ## CHATBRIDGE_V1 postMessage Protocol
 
 All iframe apps communicate with the parent shell via `window.postMessage`. Every message uses a standard envelope.
@@ -356,6 +390,35 @@ Requests the shell to resize the iframe.
   "payload": { "height": 480 }
 }
 ```
+
+#### `capture.request` — Parent → App
+
+Requests the app to capture its current visual state as a data URL. Used by the content safety pipeline.
+
+```json
+{
+  "type": "capture.request",
+  "payload": { "requestId": "req_capture_abc" }
+}
+```
+
+#### `capture.response` — App → Parent
+
+App's response with a captured frame. Sent after receiving `capture.request`.
+
+```json
+{
+  "type": "capture.response",
+  "payload": {
+    "image": "data:image/jpeg;base64,/9j/4AAQ...",
+    "requestId": "req_capture_abc"
+  }
+}
+```
+
+On error: `{ "image": null, "error": "capture failed", "requestId": "req_capture_abc" }`.
+
+The SDK handles `capture.request` automatically — apps do not need to implement it. Canvas-based apps use `toDataURL`; DOM apps use SVG foreignObject fallback.
 
 ---
 

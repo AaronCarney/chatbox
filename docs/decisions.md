@@ -35,6 +35,20 @@
 | DOS emulator | js-dos v8 (CDN, on-demand) | Loaded only when game launches, not at page load. 18 games in ZIP bundles with dosbox.conf. |
 | Spotify integration | OAuth2 via server proxy | Never expose tokens to frontend. Server holds tokens keyed by session_id. |
 
+## Content Safety
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Visual moderation | Two-layer: NSFWJS (client) + OpenAI omni-moderation (server) | Client-side catches obvious content in <1s. Server-side covers broader categories (violence, self-harm). |
+| NSFWJS runtime | Web Worker + TensorFlow.js WASM SIMD | Offloads classification from main thread. WASM avoids WebGL context limits. Worker isolated from DOM. |
+| Capture method | SDK `capture.request` → canvas `toDataURL` / SVG foreignObject | Works inside strict sandbox (`allow-scripts` only). No `allow-same-origin` needed. |
+| Blur mechanism | CSS `filter: blur(30px)` + SafetyOverlay React component | Blur is immediate via imperative DOM. Overlay provides user-facing message. Both driven from same code path. |
+| Hysteresis | Asymmetric thresholds + 5-frame clean requirement | Flag immediately (safety-first), unflag slowly (prevents flicker). Different flag/unflag thresholds prevent oscillation. |
+| Hard block | Terminal `hard_blocked` state, no auto-recovery | `sexual/minors` and `self-harm/instructions` above 0.01 → permanent block. K-12 zero tolerance. |
+| Model hosting | Self-hosted NSFWJS MobileNetV2 in `/nsfwjs-model/` | No CDN dependency. Model files served as static assets. ~3.5MB quantized. |
+| Worker bundling | Vite `worker.format: 'es'` + separate worker entry | ES format allows TF.js code-splitting inside the worker. Main bundle never loads TF.js. |
+| Server logging | MIME type only, no pixel data | Spec: "no frame pixel data persisted." Logs `image/jpeg` not base64 content. |
+
 ## Tradeoffs Accepted
 
 | Tradeoff | Accepted risk | Mitigation |

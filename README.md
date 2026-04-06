@@ -12,18 +12,26 @@ Browser
         +-- Express API (port 3001)
         |     |
         |     +-- OpenAI (GPT-4o, streaming SSE)
+        |     +-- OpenAI Moderation (omni-moderation-latest)
         |     +-- PostgreSQL (conversation history, app registry)
         |     +-- Redis (session cache, rate limiting)
         |     +-- Clerk (authentication)
         |     +-- Spotify API (OAuth + playlist tools)
         |
-        +-- iframes (third-party apps)
+        +-- Content Safety Pipeline
+        |     |
+        |     +-- NSFWJS Web Worker (WASM SIMD, 5s periodic)
+        |     +-- OpenAI Image Moderation (30s periodic)
+        |     +-- Hysteresis state machine (blur/unblur/hard-block)
+        |
+        +-- iframes (third-party apps, sandbox=allow-scripts)
               |
               +-- postMessage (CHATBRIDGE_V1 protocol)
                     |
                     +-- Chess app
                     +-- Go app
                     +-- Spotify app
+                    +-- DOS Arcade
 ```
 
 The parent shell and each iframe app communicate exclusively via the `CHATBRIDGE_V1` postMessage envelope protocol. The AI can invoke tools defined by each app; apps send state updates and completion signals back.
@@ -68,7 +76,14 @@ pnpm dev                    # starts Express on :3001
 - **Frontend**: Vercel — connect repo, set `VITE_CLERK_PUBLISHABLE_KEY`, deploy root.
 - **Server**: Railway — connect repo, point to `/server`, set all server env vars.
 
-## Links
+## Documentation
 
-- [API Reference](docs/api.md)
-- [Cost Analysis](docs/cost-analysis.md)
+| Document | Path | Description |
+|---|---|---|
+| [API Reference](docs/api.md) | `docs/api.md` | REST endpoints, SSE protocol, postMessage protocol, tool schemas |
+| [Cost Analysis](docs/cost-analysis.md) | `docs/cost-analysis.md` | Dev costs, per-user projections at scale, optimization strategies |
+| [Decision Record](docs/decisions.md) | `docs/decisions.md` | Architecture, security, app integration, and content safety decisions |
+| [Design Spec](docs/specs/2026-04-02-chatbridge-design.md) | `docs/specs/` | Original platform design spec |
+| [CV Content Safety Spec](docs/specs/2026-04-05-cv-content-safety.md) | `docs/specs/` | Visual content moderation pipeline spec |
+| [Research](docs/research/) | `docs/research/` | Pre-search, defense layers, content moderation research, NSFWJS thresholds |
+| [Implementation Plans](docs/plans/) | `docs/plans/` | L2 task-level plans for each feature epoch |
