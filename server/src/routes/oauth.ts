@@ -25,7 +25,7 @@ oauthRouter.get('/oauth/spotify/authorize', (req: Request, res: Response) => {
 
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
-  const scopes = 'user-read-private playlist-modify-public playlist-modify-private';
+  const scopes = 'playlist-modify-public playlist-modify-private';
 
   const authorizeUrl = new URL('https://accounts.spotify.com/authorize');
   authorizeUrl.searchParams.set('client_id', clientId || '');
