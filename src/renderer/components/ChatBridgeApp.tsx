@@ -398,7 +398,7 @@ export function ChatBridgeApp() {
   const hasActiveApp = Array.from(apps.values()).some((app) => app.status === 'active')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: '100%', overflow: 'hidden', backgroundColor: '#16161e' }}>
+    <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', overflow: 'hidden', backgroundColor: '#16161e' }}>
       {/* Chat panel — always 35% left side */}
       <div style={{
         flex: '0 0 35%',
