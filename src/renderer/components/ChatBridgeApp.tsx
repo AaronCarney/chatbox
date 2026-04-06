@@ -399,12 +399,12 @@ export function ChatBridgeApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', height: '100%', overflow: 'hidden', backgroundColor: '#16161e' }}>
-      {/* Chat panel — left side, or full width when no app */}
+      {/* Chat panel — always 35% left side */}
       <div style={{
-        flex: hasActiveApp ? '0 0 35%' : '1 1 100%',
+        flex: '0 0 35%',
         display: 'flex',
         flexDirection: 'column',
-        minHeight: 0,
+        height: '100%',
         minWidth: 0,
         backgroundColor: '#16161e',
       }}>
@@ -415,6 +415,7 @@ export function ChatBridgeApp() {
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
+          minHeight: 0,
         }}>
           {/* Spacer pushes messages to bottom when few */}
           <div style={{ flexGrow: 1 }} />
@@ -528,53 +529,47 @@ export function ChatBridgeApp() {
         </div>
       </div>
 
-      {/* App panel — right side, fills entire height */}
-      {hasActiveApp && (
-        <div style={{
-          flex: '1 1 65%',
-          borderLeft: '2px solid #2d2d3d',
-          backgroundColor: '#1a1a2e',
-          position: 'relative',
-          overflow: 'hidden',
-          minWidth: 0,
-          height: '100%',
-        }}>
-          {Array.from(apps.values())
-            .filter((app) => app.status !== 'serialized')
-            .map((app) => (
-              <IframeManager
-                key={app.id}
-                appId={app.id}
-                iframeUrl={app.iframeUrl}
-                isActive={app.status === 'active'}
-                height={iframeHeights.get(app.id)}
-                sandbox={app.id === 'spotify' ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
-                onRef={(el) => {
-                  if (el) iframeRefs.current.set(app.id, el)
-                  else iframeRefs.current.delete(app.id)
-                }}
-              />
-            ))}
-          <SafetyOverlay visible={safetyOverlay.visible} hardBlock={safetyOverlay.hardBlock} />
-        </div>
-      )}
-
-      {/* Hidden iframes for inactive apps (keep alive for state) */}
-      {!hasActiveApp && Array.from(apps.values())
-        .filter((app) => app.status !== 'serialized' && app.status !== 'active')
-        .map((app) => (
-          <IframeManager
-            key={app.id}
-            appId={app.id}
-            iframeUrl={app.iframeUrl}
-            isActive={false}
-            sandbox={'allow-scripts'}
-            onRef={(el) => {
-              if (el) iframeRefs.current.set(app.id, el)
-              else iframeRefs.current.delete(app.id)
-            }}
-          />
-        ))}
+      {/* App panel — always visible, 65% right side */}
+      <div style={{
+        flex: '1 1 65%',
+        borderLeft: '2px solid #2d2d3d',
+        backgroundColor: '#1a1a2e',
+        position: 'relative',
+        overflow: 'hidden',
+        height: '100%',
+        minWidth: 0,
+        ...(hasActiveApp ? {} : { display: 'flex', alignItems: 'center', justifyContent: 'center' }),
+      }}>
+        {hasActiveApp ? (
+          <>
+            {Array.from(apps.values())
+              .filter((app) => app.status !== 'serialized')
+              .map((app) => (
+                <IframeManager
+                  key={app.id}
+                  appId={app.id}
+                  iframeUrl={app.iframeUrl}
+                  isActive={app.status === 'active'}
+                  height={iframeHeights.get(app.id)}
+                  sandbox={app.id === 'spotify' ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
+                  onRef={(el) => {
+                    if (el) iframeRefs.current.set(app.id, el)
+                    else iframeRefs.current.delete(app.id)
+                  }}
+                />
+              ))}
+            <SafetyOverlay visible={safetyOverlay.visible} hardBlock={safetyOverlay.hardBlock} />
+          </>
+        ) : (
+          <div style={{ textAlign: 'center', color: '#555', padding: '24px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px', opacity: 0.5 }}>🎓</div>
+            <div style={{ fontSize: '15px', color: '#7a7a8a' }}>Ask the chatbot to open an app</div>
+            <div style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+              Try: "Show me animals in the forest" or "Let's play chess"
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
