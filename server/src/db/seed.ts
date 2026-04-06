@@ -25,7 +25,6 @@ export async function seed() {
             type: 'object',
             properties: {},
             required: [],
-            additionalProperties: false,
           },
         },
         {
@@ -56,7 +55,6 @@ export async function seed() {
             type: 'object',
             properties: {},
             required: [],
-            additionalProperties: false,
           },
         },
         {
@@ -66,7 +64,6 @@ export async function seed() {
             type: 'object',
             properties: {},
             required: [],
-            additionalProperties: false,
           },
         },
       ]),
@@ -134,7 +131,6 @@ export async function seed() {
             type: 'object',
             properties: {},
             required: [],
-            additionalProperties: false,
           },
         },
         {
@@ -144,7 +140,6 @@ export async function seed() {
             type: 'object',
             properties: {},
             required: [],
-            additionalProperties: false,
           },
         },
         {
@@ -154,7 +149,6 @@ export async function seed() {
             type: 'object',
             properties: {},
             required: [],
-            additionalProperties: false,
           },
         },
       ]),
@@ -185,7 +179,6 @@ export async function seed() {
             type: 'object',
             properties: {},
             required: [],
-            additionalProperties: false,
           },
         },
         {
@@ -247,7 +240,6 @@ export async function seed() {
               },
             },
             required: ['query'],
-            additionalProperties: false,
           },
         },
         {
@@ -270,7 +262,6 @@ export async function seed() {
               },
             },
             required: ['species_id'],
-            additionalProperties: false,
           },
         },
         {
@@ -302,7 +293,6 @@ export async function seed() {
               },
             },
             required: ['habitat'],
-            additionalProperties: false,
           },
         },
         {
@@ -328,7 +318,6 @@ export async function seed() {
               },
             },
             required: [],
-            additionalProperties: false,
           },
         },
         {
@@ -354,7 +343,6 @@ export async function seed() {
               },
             },
             required: ['species_ids'],
-            additionalProperties: false,
           },
         },
       ]),
@@ -401,7 +389,6 @@ export async function seed() {
               },
             },
             required: ['query'],
-            additionalProperties: false,
           },
         },
         {

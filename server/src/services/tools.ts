@@ -31,7 +31,7 @@ export const PLATFORM_TOOLS: OpenAITool[] = [
     type: 'function',
     function: {
       name: 'launch_app',
-      description: 'Launch a third-party app in the chat. Available apps: chess, go, dos (DOS Arcade with 18 classic games), spotify. Use when the student asks to play a game or use an app.',
+      description: 'Launch a third-party app in the chat. Available apps: chess, go, dos (DOS Arcade with 18 classic games), spotify, nature-explorer (discover animals and plants). Use when the student asks to play a game, use an app, or learn about animals/plants/nature.',
       parameters: {
         type: 'object',
         properties: { app_id: { type: 'string' } },
@@ -79,15 +79,22 @@ export function buildToolsForTurn(
   if (activeAppId) {
     const activeApp = apps.find(app => app.id === activeAppId);
     if (activeApp) {
-      const appTools = activeApp.tools.map(tool => ({
-        type: 'function' as const,
-        function: {
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.input_schema,
-          strict: true
-        }
-      }));
+      const appTools = activeApp.tools.map(tool => {
+        const props = Object.keys(tool.input_schema.properties || {});
+        const required = tool.input_schema.required || [];
+        const hasOptional = props.length > required.length;
+        return {
+          type: 'function' as const,
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: hasOptional
+              ? { ...tool.input_schema, additionalProperties: undefined }
+              : { ...tool.input_schema, additionalProperties: false },
+            strict: !hasOptional,
+          }
+        };
+      });
       tools.push(...appTools);
     }
   }
