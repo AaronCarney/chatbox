@@ -50,8 +50,8 @@ app.get('/', (_req, res) => {
 app.use('/api', healthRouter);
 app.use('/api', appsRouter);
 
-// Auth debug — temporary, remove after fixing
-app.post('/api/auth-debug', (req, res) => {
+// Auth debug — temporary, remove after fixing (GET so WebFetch can reach it)
+app.all('/api/auth-debug', (req, res) => {
   try {
     const authFn = (req as any).auth;
     const authType = typeof authFn;
@@ -68,6 +68,11 @@ app.post('/api/auth-debug', (req, res) => {
       error,
       hasHeader: !!req.headers.authorization,
       headerStart: req.headers.authorization?.slice(0, 30),
+      env: {
+        allowedOrigin: process.env.ALLOWED_ORIGIN || '(unset→localhost:5173)',
+        clerkKeyPrefix: (process.env.CLERK_SECRET_KEY || '').slice(0, 8) + '...',
+        pubKeyPrefix: (process.env.CLERK_PUBLISHABLE_KEY || '').slice(0, 10) + '...',
+      },
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
