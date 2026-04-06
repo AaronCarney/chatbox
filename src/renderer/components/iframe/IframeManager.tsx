@@ -31,7 +31,7 @@ export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onR
       title={appId}
       style={{
         width: '100%',
-        height: height ? `${height}px` : '100%',
+        height: '100%',
         border: 'none',
         display: isActive ? 'block' : 'none',
       }}

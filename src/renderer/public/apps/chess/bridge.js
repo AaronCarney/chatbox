@@ -364,6 +364,7 @@
   });
 
   init();
-  // Deferred re-render in case iframe wasn't sized yet
-  setTimeout(function() { if (game) ChessBoard.render(game); }, 200);
+  // Deferred re-renders — iframe may not be sized yet on first paint
+  setTimeout(function() { if (game) ChessBoard.render(game); }, 300);
+  setTimeout(function() { if (game) ChessBoard.render(game); }, 800);
 })();

@@ -52,7 +52,8 @@ body {
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   cursor: pointer;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  max-width: 90%;
 }
 
 .status {

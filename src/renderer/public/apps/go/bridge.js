@@ -296,8 +296,9 @@ window.addEventListener('resize', function() {
 
 // Initialize on load (ChatBridge.on('launch') re-inits with saved state if available)
 init();
-// Deferred re-render in case iframe wasn't sized yet
-setTimeout(function() { if (engine) GoBoard.render(engine); }, 200);
+// Deferred re-renders — iframe may not be sized yet on first paint
+setTimeout(function() { if (engine) GoBoard.render(engine); }, 300);
+setTimeout(function() { if (engine) GoBoard.render(engine); }, 800);
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', setupCanvasListener);
