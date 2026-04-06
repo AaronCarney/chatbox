@@ -55,7 +55,18 @@ data: [DONE]
 | `error` | Error message: `{"type":"error","message":"..."}` |
 | `[DONE]` | Stream complete |
 
-**Safety pipeline:** Input capped at 8KB. PII stripped from all roles. Tool results wrapped in random-salt delimiters. max_tokens: 1024. Progressive history trimming to fit token budget.
+**Safety pipeline:**
+- Input capped at 8KB with progressive history trimming
+- PII stripped from all roles (SSN, email, phone, address patterns → `[REDACTED]`)
+- Tool results validated against JSON Schema (`additionalProperties: false`, 2KB max)
+- Tool results wrapped in random-salt delimiters (`<tool-result-{hex}>`)
+- max_tokens: 1024
+- Max 10 tool calls per turn (server-enforced)
+- Client retries failed tool calls up to 3 times with 30s timeout each
+
+**Rate limiting:** 20 requests/min per authenticated user, 100 requests/15min general burst cap.
+
+**Security headers:** Helmet CSP (`script-src 'self'`, `frame-src 'self'`, `frame-ancestors 'self'`).
 
 ---
 
@@ -278,6 +289,10 @@ On server error, returns a fail-open response: `{ "flagged": false, "categories"
 ## CHATBRIDGE_V1 postMessage Protocol
 
 All iframe apps communicate with the parent shell via `window.postMessage`. Every message uses a standard envelope.
+
+**Origin validation:** The PostMessageBroker accepts messages from same-origin and `null` origin (sandboxed iframes without `allow-same-origin`). Messages from unknown non-null origins are rejected with a console warning. The broker's `off()` method enables proper handler cleanup on component unmount.
+
+**State persistence safety:** `app.save` payloads are validated against the launched app registry (source must match a known app ID), capped at 512KB, and stored with session-scoped keys to prevent cross-tab conflicts.
 
 ### Envelope Format
 

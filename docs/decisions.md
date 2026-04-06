@@ -18,12 +18,16 @@
 |---|---|---|
 | Data model | Ephemeral-first, 3-tier classification | COPPA/FERPA compliance. No PII stored. Day-scoped pseudonyms via HMAC. |
 | Prompt injection defense | Schema validation + random-salt delimiters + system prompt hierarchy | OWASP LLM Risk 1. Delimiters use crypto random salt per request. |
-| PII handling | Strip from all roles (user, assistant, tool) before LLM | OWASP LLM Risk 2. Regex-based, covers SSN/email/phone/CC. |
+| PII handling | Strip from all roles (user, assistant, tool) before LLM | OWASP LLM Risk 2. Regex-based, covers SSN/email/phone/address. |
 | Token budget | 8KB input cap + 1024 max_tokens + progressive trimming | OWASP LLM Risk 10 (unbounded consumption). |
 | Rate limiting | 20/min per user, 100/15min burst | Prevents automated abuse and cost spikes. |
+| Tool call limits | Max 10 per turn (server), 3 retries per failed call (client), 30s timeout | OWASP LLM Risk 6 (excessive agency). Prevents runaway loops and hung apps. |
+| CSP headers | Helmet: `script-src 'self'`, `frame-src 'self'`, `frame-ancestors 'self'` | OWASP LLM Risk 5. All apps served from same origin — `'self'` sufficient. |
 | OAuth auth | Public routes (no Clerk) | Popup window has no Clerk session. State param provides CSRF. |
 | CORS | Restrict to ALLOWED_ORIGIN | Only chatbridge.aaroncarney.me can call the API. |
-| Iframe sandbox | CSP + postMessage origin validation | Third-party apps run in sandboxed iframes, validated origin on messages. |
+| Iframe sandbox | `sandbox="allow-scripts"` only, `credentialless`, `referrerpolicy="no-referrer"` | Never `allow-same-origin`. Null-origin iframes can't access parent DOM or storage. |
+| PostMessage origin | Broker accepts `null` origin (sandboxed) + same-origin, rejects all others | Strict sandbox produces `null` origin — must accept it. Unknown origins logged and rejected. |
+| Broker cleanup | `off()` method for handler removal on unmount | Prevents handler accumulation across React re-mounts. |
 
 ## App Integration
 
@@ -48,6 +52,16 @@
 | Model hosting | Self-hosted NSFWJS MobileNetV2 in `/nsfwjs-model/` | No CDN dependency. Model files served as static assets. ~3.5MB quantized. |
 | Worker bundling | Vite `worker.format: 'es'` + separate worker entry | ES format allows TF.js code-splitting inside the worker. Main bundle never loads TF.js. |
 | Server logging | MIME type only, no pixel data | Spec: "no frame pixel data persisted." Logs `image/jpeg` not base64 content. |
+
+## State Persistence Safety
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Save source validation | Reject `app.save` from unknown app IDs | Prevents cross-app state spoofing via forged `source` field. Validates against launched app registry. |
+| Save size limit | 512KB max per app payload | Prevents single app from exhausting localStorage (5MB per origin). Silent drop with console warning. |
+| savedState type validation | Must be plain object (not array/string/null) | Basic schema gate before forwarding to apps. Prevents type confusion in `init()`. |
+| App ready handshake | SDK sends `app.ready` on load; parent waits before `task.launch` | Replaces 500ms setTimeout. 3s fallback timeout if app never signals. Prevents lost savedState on slow loads. |
+| Session-scoped storage keys | Key format: `chatbridge:save:{sessionId}:{appId}` | Prevents cross-tab state clobber. Each browser tab gets isolated state via `sessionIdRef`. |
 
 ## Deferred Safety Features
 
