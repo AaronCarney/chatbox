@@ -26,6 +26,9 @@ export function startMonitoring(
   let openaiTimer: ReturnType<typeof setInterval> | null = null
   let destroyed = false
 
+  // Track active app for reset on switch
+  let lastActiveAppId: string | null = null
+
   // Separate request tracking for NSFWJS vs OpenAI paths
   let nsfwjsRequestId: string | null = null
   let openaiRequestId: string | null = null
@@ -37,13 +40,23 @@ export function startMonitoring(
   worker = new Worker(new URL('./classifier.worker.ts', import.meta.url), { type: 'module' })
   worker.postMessage({ type: 'init' })
 
+  function checkAppSwitch(appId: string) {
+    if (lastActiveAppId && lastActiveAppId !== appId) {
+      stateMachine.reset()
+      onAction('unblur', appId)
+    }
+    lastActiveAppId = appId
+  }
+
   worker.onmessage = (event) => {
     const { type, flagged, classes, skipped } = event.data
     if (type !== 'result' || skipped) return
 
-    const action = stateMachine.update({ source: 'nsfwjs', classes })
     const app = getActiveApp()
     if (!app) return
+    checkAppSwitch(app.id)
+
+    const action = stateMachine.update({ source: 'nsfwjs', classes })
 
     if (action !== 'none') {
       applyAction(action, app.iframeEl)
@@ -132,10 +145,11 @@ export function startMonitoring(
   periodicTimer = setInterval(triggerCapture, PERIODIC_INTERVAL)
   openaiTimer = setInterval(triggerOpenAICapture, OPENAI_INTERVAL)
 
-  const eventTypes = ['tool.result', 'task.completed', 'app.state']
-  for (const type of eventTypes) {
-    broker.on(type, () => triggerCapture())
-  }
+  const eventHandlers: Array<[string, () => void]> = ['tool.result', 'task.completed', 'app.state'].map(type => {
+    const fn = () => triggerCapture()
+    broker.on(type, fn)
+    return [type, fn]
+  })
 
   return () => {
     destroyed = true
@@ -144,5 +158,8 @@ export function startMonitoring(
     abortController?.abort()
     worker?.terminate()
     broker.off('capture.response', captureResponseHandler)
+    for (const [type, fn] of eventHandlers) {
+      broker.off(type, fn)
+    }
   }
 }

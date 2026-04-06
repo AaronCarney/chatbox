@@ -56,7 +56,9 @@ async function classify(imageData: ImageData, skipDedup: boolean) {
     classes[pred.className] = pred.probability
   }
 
-  const flagged = (classes.Porn ?? 0) > 0.15 // Early warning threshold for OpenAI trigger
+  const flagged = (classes.Porn ?? 0) > 0.15
+    || (classes.Hentai ?? 0) > 0.15
+    || (classes.Sexy ?? 0) > 0.15
   self.postMessage({ type: 'result', flagged, classes, hash, skipped: false })
 }
 

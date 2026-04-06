@@ -12,6 +12,11 @@ export class SafetyStateMachine {
   state: 'clean' | 'flagged' | 'hard_blocked' = 'clean'
   private cleanCount = 0
 
+  reset(): void {
+    this.state = 'clean'
+    this.cleanCount = 0
+  }
+
   update(result: ClassifyResult): Action {
     if (this.state === 'hard_blocked') return 'none'
     if (result.source === 'openai') return this.handleOpenai(result)

@@ -52,7 +52,8 @@ export async function moderateImage(imageUrl: string): Promise<{
     const categories = output.categories as unknown as Record<string, boolean>;
     const categoryScores = output.category_scores as unknown as Record<string, number>;
     if (output.flagged) {
-      logger.warn({ categories, imageUrl: imageUrl.slice(0, 50) }, 'image moderation flagged');
+      const mimeType = imageUrl.match(/^data:([^;]+)/)?.[1] ?? 'unknown'
+      logger.warn({ categories, mimeType }, 'image moderation flagged');
     }
     return { flagged: output.flagged, categories, categoryScores };
   } catch (err) {

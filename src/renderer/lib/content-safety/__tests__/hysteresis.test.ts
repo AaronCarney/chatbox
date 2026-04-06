@@ -67,6 +67,17 @@ describe('SafetyStateMachine', () => {
     expect(sm.state).toBe('hard_blocked')
   })
 
+  it('reset() returns to clean state', () => {
+    const sm = new SafetyStateMachine()
+    sm.update({ source: 'nsfwjs', classes: { Porn: 0.5, Sexy: 0, Hentai: 0, Drawing: 0, Neutral: 0.5 } })
+    expect(sm.state).toBe('flagged')
+    sm.reset()
+    expect(sm.state).toBe('clean')
+    // First clean frame after reset should not trigger unblur (no hysteresis needed)
+    const action = sm.update({ source: 'nsfwjs', classes: { Porn: 0.01, Sexy: 0.01, Hentai: 0.01, Drawing: 0.5, Neutral: 0.47 } })
+    expect(action).toBe('none')
+  })
+
   it('hard_blocked is terminal — ignores all subsequent updates', () => {
     const sm = new SafetyStateMachine()
     sm.update({
