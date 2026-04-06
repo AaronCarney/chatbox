@@ -170,7 +170,7 @@
     <h2>Iframe Sandboxing</h2>
     <p>All five embedded apps (Chess, Go, Nature Explorer, DOS Arcade, Spotify) run inside sandboxed iframes. Think of each iframe as a locked room &mdash; the app can run code, but it cannot reach anything outside its walls.</p>
     <ul class="tech-list">
-      <li><strong>Sandbox policy:</strong> <code>allow-scripts</code> only &mdash; apps cannot access parent DOM, read cookies, navigate away, open popups, or submit forms</li>
+      <li><strong>Sandbox policy:</strong> <code>allow-scripts</code> only &mdash; apps cannot access parent DOM, read cookies, navigate away, or submit forms. Spotify's iframe additionally permits <code>allow-popups</code> for its one-time OAuth login flow only; no other app has popup permission.</li>
       <li><strong>Credentialless:</strong> The <code>credentialless</code> attribute prevents iframes from accessing any stored browser credentials (cookies, HTTP auth, sessions)</li>
       <li><strong>Feature policy:</strong> <code>allow=""</code> denies access to camera, microphone, geolocation, and all other sensitive browser APIs</li>
       <li><strong>Referrer policy:</strong> <code>no-referrer</code> prevents URL information from leaking to embedded content</li>
@@ -186,6 +186,15 @@
       <li><strong>Server-side token exchange:</strong> The Spotify client secret never leaves the server. Token exchange happens server-side; the client only sees an opaque session reference.</li>
       <li><strong>Session-scoped:</strong> Spotify tokens are tied to ephemeral session IDs, not persistent user accounts. No long-lived refresh tokens stored.</li>
       <li><strong>Error sanitization:</strong> Error messages are HTML-escaped before rendering to prevent XSS via OAuth error callbacks.</li>
+      <li><strong>No external navigation from results:</strong> Search results and track cards are display-only. Clicking a track does not open Spotify's website &mdash; all content stays within the monitored app panel.</li>
+    </ul>
+
+    <h3>School Deployment: Spotify Accounts</h3>
+    <p>Spotify requires a login for search and playback. For COPPA-compliant deployments, schools should provision students with <strong>non-identifying school email accounts</strong> (e.g., <code>student4823@school.edu</code>) rather than personal emails. This ensures:</p>
+    <ul class="tech-list">
+      <li><strong>No personal identity exposure:</strong> The Spotify account is tied to a generic school identifier, not the student's real name or personal email</li>
+      <li><strong>School-controlled access:</strong> IT administrators can provision, monitor, and revoke accounts centrally</li>
+      <li><strong>Ephemeral sessions:</strong> ChatBridge does not persist Spotify tokens between sessions &mdash; students re-authenticate each session via a popup, and the token is discarded when the tab closes</li>
     </ul>
 
     <h2>Content Filtering</h2>
