@@ -1,7 +1,6 @@
 import { useAuth } from '@clerk/clerk-react'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchApps } from '../services/api.js'
-import AppCard from './iframe/AppCard.js'
 import { IframeManager } from './iframe/IframeManager.js'
 import { PostMessageBroker } from './iframe/PostMessageBroker.js'
 import { ToolCallIndicator } from './chat/ToolCallIndicator.js'
@@ -19,18 +18,6 @@ interface AvailableApp {
   [key: string]: unknown
 }
 
-interface CompletedActivity {
-  appName: string
-  type: 'result' | 'error' | 'partial'
-  payload: {
-    title?: string
-    score?: number
-    maxScore?: number
-    items?: { label: string; value: string }[]
-    encouragement?: string
-  }
-}
-
 export function ChatBridgeApp() {
   const { getToken } = useAuth()
   const { messages, isStreaming, streamingText, sendMessage, addToolResult, continueAfterToolCalls } = useChat()
@@ -38,7 +25,6 @@ export function ChatBridgeApp() {
   const { state: toolState, currentToolCall, handleToolCall, resolveToolCall } = useToolExecution()
 
   const [availableApps, setAvailableApps] = useState<AvailableApp[]>([])
-  const [completedActivities, setCompletedActivities] = useState<CompletedActivity[]>([])
   const [input, setInput] = useState('')
   const [iframeHeights, setIframeHeights] = useState<Map<string, number>>(new Map())
   const [safetyOverlay, setSafetyOverlay] = useState<{ visible: boolean; hardBlock: boolean }>({ visible: false, hardBlock: false })
@@ -55,18 +41,6 @@ export function ChatBridgeApp() {
     brokerRef.current = broker
 
     // tool.result is handled in the wildcard handler below (needs requestId from envelope)
-
-    broker.on('task.completed', (data: unknown) => {
-      const d = data as { appName?: string; type?: string; payload?: object } | null
-      setCompletedActivities((prev) => [
-        ...prev,
-        {
-          appName: d?.appName ?? 'App',
-          type: (d?.type as CompletedActivity['type']) ?? 'result',
-          payload: d?.payload ?? {},
-        },
-      ])
-    })
 
     broker.on('app.resize', (data: unknown) => {
       const d = data as { height?: number } | null
@@ -305,25 +279,6 @@ export function ChatBridgeApp() {
             }
             const result = await dispatchToolToApp(id, name, parseArgs(), spotifyTarget)
             addToolResult(id, JSON.stringify(result))
-
-            // Render as native AppCard (two-tier: card instead of iframe-only)
-            const tracks = (result as any)?.tracks
-            if (Array.isArray(tracks)) {
-              setCompletedActivities((prev) => [
-                ...prev,
-                {
-                  appName: 'Spotify',
-                  type: 'result' as const,
-                  payload: {
-                    title: name === 'search_tracks' ? 'Search Results' : 'Recommendations',
-                    items: tracks.slice(0, 5).map((t: any) => ({
-                      label: t.name || t.id,
-                      value: t.artist || (t.artists?.[0]?.name ?? ''),
-                    })),
-                  },
-                },
-              ])
-            }
           } else {
             addToolResult(id, JSON.stringify({ error: 'No active app' }))
           }

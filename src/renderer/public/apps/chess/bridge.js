@@ -317,16 +317,8 @@
         if (result) {
           ChessBoard.render(game);
           ChessBoard.updateStatus(game);
-          saveGame();
           ChatBridge.respondToTool(requestId, ChessEngine.getState(game));
-          if (game.game_over()) {
-            stopClock();
-            ChatBridge.complete('success', {
-              fen: game.fen(),
-              result: game.in_checkmate() ? 'Checkmate' : 'Draw',
-              moves: game.history().length,
-            });
-          }
+          afterMove();
         } else {
           ChatBridge.respondToTool(requestId, { error: 'Invalid move' });
         }
