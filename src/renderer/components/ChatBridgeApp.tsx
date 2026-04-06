@@ -229,10 +229,10 @@ export function ChatBridgeApp() {
             clearTimeout(readyTimeout)
             launchWhenReady(appId)
           }
-          broker.on('app.ready', readyHandler)
+          brokerRef.current?.on('app.ready', readyHandler)
 
           function launchWhenReady(id: string) {
-            broker.off('app.ready', readyHandler)
+            brokerRef.current?.off('app.ready', readyHandler)
             const iframe = iframeRefs.current.get(id)
             if (iframe && brokerRef.current) {
               let savedState: unknown = undefined
@@ -283,8 +283,13 @@ export function ChatBridgeApp() {
 
         case 'search_tracks':
         case 'get_recommendations': {
-          if (activeApp) {
-            const result = await dispatchToolToApp(id, name, parseArgs(), activeApp)
+          const spotifyTarget = activeApp
+            || (justLaunchedAppId ? { id: justLaunchedAppId } : null)
+          if (spotifyTarget) {
+            if (justLaunchedAppId && !iframeRefs.current.get(spotifyTarget.id)) {
+              await new Promise(r => setTimeout(r, 1500))
+            }
+            const result = await dispatchToolToApp(id, name, parseArgs(), spotifyTarget)
             addToolResult(id, JSON.stringify(result))
 
             // Render as native AppCard (two-tier: card instead of iframe-only)
@@ -330,17 +335,17 @@ export function ChatBridgeApp() {
       }
     }
 
-    // Send tool results back to LLM for follow-up response
-    const followUp = await continueAfterToolCalls({
-      activeAppId: activeApp?.id ?? null,
+    // Send tool results back to LLM — loop handles chained tool calls
+    const MAX_CHAIN_DEPTH = 5
+    let chainResult = await continueAfterToolCalls({
+      activeAppId: activeApp?.id ?? justLaunchedAppId ?? null,
       authToken: token,
     })
 
-    // Handle chained tool calls — LLM may call search_species after launch_app
-    if (followUp?.type === 'tool_calls') {
+    for (let depth = 0; depth < MAX_CHAIN_DEPTH && chainResult?.type === 'tool_calls'; depth++) {
       const chainedActiveApp = getActiveApp()
         || (justLaunchedAppId ? { id: justLaunchedAppId } : null)
-      for (const tc of followUp.toolCalls) {
+      for (const tc of chainResult.toolCalls) {
         const chainId: string = tc.id ?? ''
         const chainName: string = tc.name ?? ''
         const chainArgs = (() => { try { return JSON.parse(tc.arguments ?? '{}') } catch { return {} } })()
@@ -348,16 +353,23 @@ export function ChatBridgeApp() {
           if (justLaunchedAppId && !iframeRefs.current.get(chainedActiveApp.id)) {
             await new Promise(r => setTimeout(r, 1500))
           }
-          const chainResult = await dispatchToolToApp(chainId, chainName, chainArgs, chainedActiveApp)
-          addToolResult(chainId, JSON.stringify(chainResult))
+          const dispatchResult = await dispatchToolToApp(chainId, chainName, chainArgs, chainedActiveApp)
+          addToolResult(chainId, JSON.stringify(dispatchResult))
         } else {
           addToolResult(chainId, JSON.stringify({ error: 'No active app for: ' + chainName }))
         }
       }
-      await continueAfterToolCalls({ activeAppId: chainedActiveApp?.id ?? null, authToken: token })
+      chainResult = await continueAfterToolCalls({ activeAppId: chainedActiveApp?.id ?? null, authToken: token })
     }
     } catch (err) {
       console.error('[ChatBridge] handleSend error:', err)
+      // Prevent conversation corruption: add error tool results for any
+      // tool calls that may not have received results before the exception
+      if (result?.type === 'tool_calls') {
+        for (const tc of result.toolCalls) {
+          addToolResult(tc.id ?? '', JSON.stringify({ error: 'Tool execution failed' }))
+        }
+      }
     }
   }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp, continueAfterToolCalls])
 
