@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nature Explorer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <div id="welcome" class="welcome-view">
+      <div class="welcome-icon">🌿</div>
+      <h1>Nature Explorer</h1>
+      <p>Ask the chatbot about any animal or plant!</p>
+      <p class="hint">Try: "Tell me about monarch butterflies" or "What animals live in coral reefs?"</p>
+    </div>
+    <div id="results" class="results-view" style="display:none"></div>
+    <div id="detail" class="detail-view" style="display:none"></div>
+    <div id="habitat" class="habitat-view" style="display:none"></div>
+    <div id="comparison" class="comparison-view" style="display:none"></div>
+  </div>
+  <script src="/sdk/chatbridge-sdk.js"></script>
+  <script src="app.js"></script>
+  <script src="bridge.js"></script>
+</body>
+</html>
