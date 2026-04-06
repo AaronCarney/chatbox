@@ -10,6 +10,7 @@ import { appsRouter } from './routes/apps.js';
 import { chatRouter } from './routes/chat.js';
 import { oauthRouter } from './routes/oauth.js';
 import { spotifyRouter } from './routes/spotify.js';
+import { natureRouter } from './routes/nature.js';
 import { moderationRouter } from './routes/moderation.js';
 import { seed } from './db/seed.js';
 
@@ -42,6 +43,7 @@ app.use('/api', chatRouter);
 // OAuth routes - public (popup window has no Clerk session; state param provides CSRF)
 app.use('/api', oauthRouter);
 app.use('/api', spotifyRouter);
+app.use('/api', natureRouter);
 app.use('/api', moderationRouter);
 
 // Frontend needs @clerk/clerk-react ClerkProvider with VITE_CLERK_PUBLISHABLE_KEY
