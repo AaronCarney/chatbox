@@ -50,6 +50,30 @@ app.get('/', (_req, res) => {
 app.use('/api', healthRouter);
 app.use('/api', appsRouter);
 
+// Auth debug — temporary, remove after fixing
+app.post('/api/auth-debug', (req, res) => {
+  try {
+    const authFn = (req as any).auth;
+    const authType = typeof authFn;
+    let authResult = null;
+    let error = null;
+    if (authType === 'function') {
+      try { authResult = authFn(); } catch (e: any) { error = e.message; }
+    } else if (authType === 'object' && authFn) {
+      authResult = authFn;
+    }
+    res.json({
+      authType,
+      authResult,
+      error,
+      hasHeader: !!req.headers.authorization,
+      headerStart: req.headers.authorization?.slice(0, 30),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Protected routes - require authentication
 app.use('/api/chat', requireSession);
 app.use('/api', chatRouter);
