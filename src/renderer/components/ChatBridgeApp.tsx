@@ -198,6 +198,8 @@ export function ChatBridgeApp() {
     })
     if (!result || result.type !== 'tool_calls') return
 
+    let justLaunchedAppId: string | null = null
+
     for (const tc of result.toolCalls) {
       const name: string = tc.name ?? ''
       const id: string = tc.id ?? ''
@@ -213,6 +215,7 @@ export function ChatBridgeApp() {
           const appId = args.appId ?? args.app_id ?? id
           const app = availableApps.find((a) => a.id === appId)
           launchApp(appId, app?.iframe_url ?? '')
+          justLaunchedAppId = appId
           // Set taller default height for DOS arcade (50% viewport)
           if (appId === 'dos') {
             setIframeHeights(prev => new Map(prev).set(appId, Math.round(window.innerHeight * 0.5)))
@@ -309,8 +312,15 @@ export function ChatBridgeApp() {
         }
 
         default: {
-          if (activeApp) {
-            const result = await dispatchToolToApp(id, name, parseArgs(), activeApp)
+          // Re-check active app — may have been launched earlier in this batch
+          const targetApp = getActiveApp()
+            || (justLaunchedAppId ? { id: justLaunchedAppId } : null)
+          if (targetApp) {
+            // Wait briefly for iframe to be ready if just launched
+            if (justLaunchedAppId && !iframeRefs.current.get(targetApp.id)) {
+              await new Promise(r => setTimeout(r, 1500))
+            }
+            const result = await dispatchToolToApp(id, name, parseArgs(), targetApp)
             addToolResult(id, JSON.stringify(result))
           } else {
             addToolResult(id, JSON.stringify({ error: 'No active app' }))
@@ -326,14 +336,25 @@ export function ChatBridgeApp() {
       authToken: token,
     })
 
-    // Handle chained tool calls (rare but possible)
+    // Handle chained tool calls — LLM may call search_species after launch_app
     if (followUp?.type === 'tool_calls') {
+      const chainedActiveApp = getActiveApp()
+        || (justLaunchedAppId ? { id: justLaunchedAppId } : null)
       for (const tc of followUp.toolCalls) {
-        const id: string = tc.id ?? ''
-        const name: string = tc.name ?? ''
-        addToolResult(id, JSON.stringify({ error: 'Chained tool calls not yet supported: ' + name }))
+        const chainId: string = tc.id ?? ''
+        const chainName: string = tc.name ?? ''
+        const chainArgs = (() => { try { return JSON.parse(tc.arguments ?? '{}') } catch { return {} } })()
+        if (chainedActiveApp) {
+          if (justLaunchedAppId && !iframeRefs.current.get(chainedActiveApp.id)) {
+            await new Promise(r => setTimeout(r, 1500))
+          }
+          const chainResult = await dispatchToolToApp(chainId, chainName, chainArgs, chainedActiveApp)
+          addToolResult(chainId, JSON.stringify(chainResult))
+        } else {
+          addToolResult(chainId, JSON.stringify({ error: 'No active app for: ' + chainName }))
+        }
       }
-      await continueAfterToolCalls({ activeAppId: activeApp?.id ?? null, authToken: token })
+      await continueAfterToolCalls({ activeAppId: chainedActiveApp?.id ?? null, authToken: token })
     }
     } catch (err) {
       console.error('[ChatBridge] handleSend error:', err)
