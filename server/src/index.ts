@@ -31,6 +31,7 @@ app.use(cors({
     }
   },
   credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 app.use('/api', generalLimiter);
@@ -48,11 +49,6 @@ app.get('/', (_req, res) => {
 // Public routes - no authentication required
 app.use('/api', healthRouter);
 app.use('/api', appsRouter);
-
-// Auth diagnostic — same middleware chain as /api/chat but GET for testing
-app.get('/api/chat-check', requireSession, (req, res) => {
-  res.json({ auth: 'ok', userId: (req as any).auth?.userId || null });
-});
 
 // Protected routes - require authentication
 app.use('/api/chat', requireSession);
