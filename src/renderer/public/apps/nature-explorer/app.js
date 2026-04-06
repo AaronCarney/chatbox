@@ -28,7 +28,7 @@ var NatureApp = (function () {
   };
 
   var currentView = 'welcome';
-  var previousView = 'welcome';
+  var viewHistory = [];
   var lastSearchResults = [];
 
   function el(tag, attrs, children) {
@@ -64,11 +64,23 @@ var NatureApp = (function () {
     return el('span', { className: 'badge ' + cls, textContent: label });
   }
 
-  function makeBackBtn(targetView) {
+  function goBack() {
+    var prev = viewHistory.length > 0 ? viewHistory.pop() : 'welcome';
+    // Don't push to history when going back
+    var views = ['welcome', 'results', 'detail', 'habitat', 'comparison'];
+    views.forEach(function (v) {
+      var node = document.getElementById(v);
+      if (node) node.style.display = v === prev ? 'block' : 'none';
+    });
+    currentView = prev;
+    window.scrollTo(0, 0);
+  }
+
+  function makeBackBtn() {
     return el('button', {
       className: 'back-btn',
       textContent: '\u2190 Back',
-      onClick: function () { showView(targetView || 'welcome'); }
+      onClick: goBack
     });
   }
 
@@ -78,8 +90,11 @@ var NatureApp = (function () {
       var node = document.getElementById(v);
       if (node) node.style.display = v === viewName ? 'block' : 'none';
     });
-    previousView = currentView;
-    currentView = viewName;
+    if (viewName !== currentView) {
+      viewHistory.push(currentView);
+      if (viewHistory.length > 10) viewHistory.shift();
+      currentView = viewName;
+    }
     window.scrollTo(0, 0);
     setTimeout(function () {
       var appEl = document.getElementById('app');
@@ -178,7 +193,7 @@ var NatureApp = (function () {
     if (!Array.isArray(results)) results = [];
     lastSearchResults = results;
 
-    container.appendChild(makeBackBtn('welcome'));
+    container.appendChild(makeBackBtn());
     container.appendChild(el('h2', { className: 'section-header', textContent: 'Search Results' }));
 
     if (data.query) {
@@ -216,7 +231,7 @@ var NatureApp = (function () {
     var container = document.getElementById('detail');
     clearContainer(container);
 
-    container.appendChild(makeBackBtn(previousView !== 'detail' ? previousView : 'welcome'));
+    container.appendChild(makeBackBtn());
 
     // Hero image + photo gallery
     var images = species.images || [];
@@ -269,22 +284,6 @@ var NatureApp = (function () {
         el('strong', { textContent: species.observations_count.toLocaleString() }),
         document.createTextNode(' observations on iNaturalist')
       ]));
-    }
-
-    // External links
-    var links = [];
-    if (species.wikipedia_url) {
-      links.push(el('a', { className: 'ext-link', href: species.wikipedia_url, target: '_blank', rel: 'noopener' }, [
-        document.createTextNode('📖 Wikipedia')
-      ]));
-    }
-    if (species.inaturalist_url) {
-      links.push(el('a', { className: 'ext-link', href: species.inaturalist_url, target: '_blank', rel: 'noopener' }, [
-        document.createTextNode('🔬 iNaturalist')
-      ]));
-    }
-    if (links.length > 0) {
-      container.appendChild(el('div', { className: 'external-links' }, links));
     }
 
     // Taxonomy — show rank labels, clickable to search
@@ -409,7 +408,7 @@ var NatureApp = (function () {
     var habitatName = data.habitat || data.name || 'Unknown Habitat';
     var species = data.species || data.results || [];
 
-    container.appendChild(makeBackBtn('welcome'));
+    container.appendChild(makeBackBtn());
 
     var emoji = HABITAT_EMOJIS[habitatName.toLowerCase()] || '🌍';
     container.appendChild(el('div', { className: 'habitat-banner' }, [
@@ -446,7 +445,7 @@ var NatureApp = (function () {
     var similarities = data.similarities || [];
     var differences = data.differences || [];
 
-    container.appendChild(makeBackBtn('welcome'));
+    container.appendChild(makeBackBtn());
     container.appendChild(el('div', { className: 'comparison-header' }, [
       el('h2', { className: 'section-header', textContent: 'Species Comparison' })
     ]));
