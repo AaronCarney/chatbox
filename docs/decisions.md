@@ -48,6 +48,8 @@
 | Tool call flow | Server-side assembly | Stream tool_call deltas, assemble on server, emit single `tool_call_start` SSE event. |
 | DOS emulator | js-dos v8 (CDN, on-demand) | Loaded only when game launches, not at page load. 18 games in ZIP bundles with dosbox.conf. |
 | Spotify integration | OAuth2 via server proxy | Never expose tokens to frontend. Server holds tokens keyed by session_id. |
+| Nature Explorer APIs | Server proxy to iNaturalist + Perenual | Hides Perenual API key, avoids iNaturalist CORS. Taxonomy blocklist + CC license filtering applied server-side. |
+| Nature Explorer auth | `auth_type: none` (external public APIs) | iNaturalist: no key needed. Perenual: free tier key server-side only. Demonstrates "External Public API" auth pattern. |
 | Spotify OAuth scopes | `playlist-modify-public playlist-modify-private` only | Minimum privilege. `user-read-private` removed — exposes student email/name to Spotify, inappropriate for K-12. Search and recommendations use public API (no user scope needed). No playback (requires Premium + `streaming` scope). |
 
 ## Content Safety

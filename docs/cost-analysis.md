@@ -88,5 +88,7 @@ At scale, image moderation dominates cost. Mitigation strategies:
 - Costs scale linearly with usage; no per-seat licensing for GPT-4o.
 - Clerk free tier covers up to 10,000 MAU; paid plans start at $25/mo above that.
 - Spotify API: free under standard quota (no per-call cost).
+- iNaturalist API: free, no API key, 100 req/min rate limit. Community-maintained. No per-call cost.
+- Perenual API: free tier, 100 req/day. API key required (server-side only). Sufficient for classroom use. Paid tier ($2.99/mo) for 300 req/day if needed at scale.
 - At 100K users the dominant cost is infrastructure ($300), not LLM tokens ($32).
 - Switching to GPT-4o-mini ($0.15/$0.60 per 1M tokens) would reduce token costs by ~90% with acceptable quality for K-12 chat.

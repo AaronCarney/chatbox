@@ -207,6 +207,160 @@ export async function seed() {
     ]
   );
 
+  // Nature Explorer app
+  await query(
+    `INSERT INTO apps (id, name, description_for_model, iframe_url, auth_type, tools)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (id) DO UPDATE SET
+       name = EXCLUDED.name,
+       description_for_model = EXCLUDED.description_for_model,
+       iframe_url = EXCLUDED.iframe_url,
+       auth_type = EXCLUDED.auth_type,
+       tools = EXCLUDED.tools`,
+    [
+      'nature-explorer',
+      'Nature Explorer',
+      'Interactive species exploration tool for discovering animals and plants worldwide. Students search by name, explore habitats, compare species side-by-side, learn taxonomy, and discover random organisms. Uses iNaturalist and Perenual APIs. Rich profiles with images, fun facts, and conservation status render in the iframe. Session ends when student closes the app (no task completion).',
+      '/apps/nature-explorer/index.html',
+      'none',
+      JSON.stringify([
+        {
+          name: 'search_species',
+          description: 'Search for animals or plants by name, keyword, or scientific term. Returns matching species with basic info. Use when students ask about specific creatures.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                maxLength: 100,
+                description: 'Search term: common name, scientific name, or keyword.',
+              },
+              type: {
+                type: 'string',
+                enum: ['animal', 'plant', 'all'],
+                description: 'Filter results. Defaults to "all".',
+              },
+              region: {
+                type: 'string',
+                enum: ['North America', 'South America', 'Europe', 'Africa', 'Asia', 'Australia', 'Oceania', 'worldwide'],
+                description: 'Geographic region filter. Defaults to "worldwide".',
+              },
+            },
+            required: ['query'],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: 'get_species_details',
+          description: 'Get comprehensive species info: taxonomy, habitat, images, conservation status. Call after search_species to display detailed profiles.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              species_id: {
+                type: 'string',
+                description: 'Species ID from search results (e.g., "inat:12345").',
+              },
+              include_images: {
+                type: 'boolean',
+                description: 'Include photos. Defaults to true.',
+              },
+              include_similar: {
+                type: 'boolean',
+                description: 'Include similar species section. Defaults to true.',
+              },
+            },
+            required: ['species_id'],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: 'explore_habitat',
+          description: 'Browse species by habitat type. Use when students ask "what animals live in the Amazon?" or "show me desert plants".',
+          input_schema: {
+            type: 'object',
+            properties: {
+              habitat: {
+                type: 'string',
+                enum: ['rainforest', 'desert', 'coral reef', 'ocean', 'forest', 'grassland', 'arctic', 'wetland', 'mountains', 'urban'],
+                description: 'Habitat type to explore.',
+              },
+              region: {
+                type: 'string',
+                enum: ['North America', 'South America', 'Europe', 'Africa', 'Asia', 'Australia', 'Oceania', 'worldwide'],
+                description: 'Geographic region. Defaults to "worldwide".',
+              },
+              type: {
+                type: 'string',
+                enum: ['animal', 'plant', 'all'],
+                description: 'Filter by organism type. Defaults to "all".',
+              },
+              limit: {
+                type: 'integer',
+                minimum: 1,
+                maximum: 50,
+                description: 'Number of species to return. Defaults to 12.',
+              },
+            },
+            required: ['habitat'],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: 'get_random_species',
+          description: 'Get a random interesting species with full details. Great for engagement when students say "show me something cool!".',
+          input_schema: {
+            type: 'object',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['animal', 'plant', 'all'],
+                description: 'Filter by organism type. Defaults to "all".',
+              },
+              difficulty: {
+                type: 'string',
+                enum: ['easy', 'medium', 'hard', 'any'],
+                description: 'Educational difficulty. Defaults to "any".',
+              },
+              region: {
+                type: 'string',
+                enum: ['North America', 'South America', 'Europe', 'Africa', 'Asia', 'Australia', 'Oceania', 'worldwide'],
+                description: 'Geographic region preference. Defaults to "worldwide".',
+              },
+            },
+            required: [],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: 'compare_species',
+          description: 'Compare 2-4 species side-by-side. Use when students ask "what\'s the difference between a frog and a toad?".',
+          input_schema: {
+            type: 'object',
+            properties: {
+              species_ids: {
+                type: 'array',
+                items: { type: 'string' },
+                minItems: 2,
+                maxItems: 4,
+                description: 'Array of 2-4 species IDs to compare.',
+              },
+              aspects: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  enum: ['taxonomy', 'habitat', 'diet', 'behavior', 'size', 'lifespan', 'conservation', 'adaptations'],
+                },
+                description: 'Aspects to compare. Defaults to all.',
+              },
+            },
+            required: ['species_ids'],
+            additionalProperties: false,
+          },
+        },
+      ]),
+    ]
+  );
+
   // Spotify app
   await query(
     `INSERT INTO apps (id, name, description_for_model, iframe_url, auth_type, oauth_config, tools)

@@ -20,6 +20,8 @@ Browser
         |     +-- Redis (session cache, rate limiting)
         |     +-- Clerk (authentication)
         |     +-- Spotify API (OAuth + playlist tools)
+        |     +-- iNaturalist API (species data, free)
+        |     +-- Perenual API (plant data, free tier)
         |
         +-- Content Safety Pipeline
         |     |
@@ -35,6 +37,7 @@ Browser
                     +-- Go app
                     +-- Spotify app
                     +-- DOS Arcade
+                    +-- Nature Explorer
 ```
 
 The parent shell and each iframe app communicate exclusively via the `CHATBRIDGE_V1` postMessage envelope protocol. The AI can invoke tools defined by each app; apps send state updates and completion signals back.

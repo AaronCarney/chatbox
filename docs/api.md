@@ -252,6 +252,96 @@ Get track recommendations seeded by track IDs.
 
 ---
 
+## Nature Explorer
+
+Server-side proxy to iNaturalist and Perenual APIs. No authentication required. All responses normalized to a consistent species format with taxonomy blocklist and CC license filtering applied.
+
+### GET /api/nature/search
+
+Search species by name, keyword, or scientific term via iNaturalist taxa autocomplete. Optionally supplements with Perenual plant results.
+
+**Auth:** Not required
+
+**Query params:**
+
+| Param | Required | Description |
+|---|---|---|
+| `q` | yes | Search term (common name, scientific name, or keyword) |
+| `type` | no | Filter: `animal`, `plant`, or `all` (default: all) |
+| `region` | no | Geographic region (not enforced by iNaturalist autocomplete) |
+
+**Response:**
+
+```json
+{
+  "results": [
+    {
+      "id": "inat:12345",
+      "common_name": "Monarch Butterfly",
+      "scientific_name": "Danaus plexippus",
+      "type": "animal",
+      "image_url": "https://inaturalist-open-data.s3.amazonaws.com/...",
+      "iucn_status": "LC"
+    }
+  ],
+  "total": 8
+}
+```
+
+### GET /api/nature/species/:id
+
+Full species details from iNaturalist. ID format: `inat:{taxon_id}`.
+
+**Auth:** Not required
+
+**Response:**
+
+```json
+{
+  "id": "inat:12345",
+  "common_name": "Monarch Butterfly",
+  "scientific_name": "Danaus plexippus",
+  "taxonomy": { "kingdom": "Animalia", "phylum": "Arthropoda", "class": "Insecta", "order": "Lepidoptera", "family": "Nymphalidae", "genus": "Danaus", "species": "Danaus plexippus" },
+  "description": "Wikipedia summary text...",
+  "habitat": null,
+  "images": [{ "url": "https://...", "credit": "Photo by user123" }],
+  "iucn_status": "LC",
+  "ancestors": [{ "rank": "kingdom", "name": "Animalia" }]
+}
+```
+
+### GET /api/nature/habitat
+
+Browse species by habitat type via iNaturalist observations. Deduped by taxon.
+
+**Auth:** Not required
+
+**Query params:**
+
+| Param | Required | Description |
+|---|---|---|
+| `habitat` | yes | Habitat keyword (rainforest, desert, coral reef, ocean, forest, grassland, arctic, wetland, mountains, urban) |
+| `type` | no | Filter: `animal`, `plant`, or `all` |
+| `limit` | no | Max species to return (1-30, default: 12) |
+
+**Response:** Same shape as search (`{ results, total }`).
+
+### GET /api/nature/random
+
+Random research-grade species with full details.
+
+**Auth:** Not required
+
+**Query params:**
+
+| Param | Required | Description |
+|---|---|---|
+| `type` | no | Filter: `animal`, `plant` |
+
+**Response:** Same shape as species detail.
+
+---
+
 ## Content Safety
 
 ### POST /api/moderate-image
