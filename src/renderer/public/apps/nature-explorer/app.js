@@ -178,7 +178,9 @@ var NatureApp = (function () {
           textContent: species.common_name || species.commonName || 'Unknown' }),
         el('div', { className: 'species-card-sci',
           textContent: species.scientific_name || species.scientificName || '' }),
-        makeBadge(species.iucn_status || species.conservation_status || species.conservationStatus)
+        makeBadge(species.iucn_status || species.conservation_status || species.conservationStatus),
+        species.observations_count ? el('div', { className: 'species-card-obs',
+          textContent: species.observations_count.toLocaleString() + ' obs' }) : null
       ].filter(Boolean))
     ]);
     return card;
@@ -274,16 +276,52 @@ var NatureApp = (function () {
         textContent: species.common_name || species.commonName || 'Unknown Species' }),
       el('div', { className: 'detail-sci-name',
         textContent: species.scientific_name || species.scientificName || '' }),
-      makeBadge(species.iucn_status || species.conservation_status || species.conservationStatus)
-    ].filter(Boolean);
+    ];
+    // Tags row: type, conservation, extinct/endemic
+    var tags = [];
+    var iucnBadge = makeBadge(species.iucn_status || (species.conservation && species.conservation.status));
+    if (iucnBadge) tags.push(iucnBadge);
+    var speciesType = species.type || '';
+    if (speciesType) {
+      tags.push(el('span', { className: 'badge badge-type', textContent: speciesType === 'animal' ? '🐾 Animal' : '🌱 Plant' }));
+    }
+    if (species.rank) {
+      tags.push(el('span', { className: 'badge badge-rank', textContent: species.rank.charAt(0).toUpperCase() + species.rank.slice(1) }));
+    }
+    if (species.is_extinct) {
+      tags.push(el('span', { className: 'badge badge-ex', textContent: '† Extinct' }));
+    }
+    if (species.is_endemic) {
+      tags.push(el('span', { className: 'badge badge-endemic', textContent: '📍 Endemic' }));
+    }
+    if (tags.length > 0) {
+      headerChildren.push(el('div', { className: 'detail-tags' }, tags));
+    }
     container.appendChild(el('div', { className: 'detail-header' }, headerChildren));
 
-    // Observation count
+    // Quick stats row
+    var stats = [];
     if (species.observations_count) {
-      container.appendChild(el('div', { className: 'obs-count' }, [
-        el('strong', { textContent: species.observations_count.toLocaleString() }),
-        document.createTextNode(' observations on iNaturalist')
+      stats.push(el('div', { className: 'stat-item' }, [
+        el('div', { className: 'stat-value', textContent: species.observations_count.toLocaleString() }),
+        el('div', { className: 'stat-label', textContent: 'Observations' })
       ]));
+    }
+    if (species.images && species.images.length > 0) {
+      stats.push(el('div', { className: 'stat-item' }, [
+        el('div', { className: 'stat-value', textContent: String(species.images.length) }),
+        el('div', { className: 'stat-label', textContent: 'Photos' })
+      ]));
+    }
+    var csObj = species.conservation;
+    if (csObj && csObj.status_name) {
+      stats.push(el('div', { className: 'stat-item' }, [
+        el('div', { className: 'stat-value', textContent: csObj.status_name }),
+        el('div', { className: 'stat-label', textContent: csObj.authority || 'Conservation' })
+      ]));
+    }
+    if (stats.length > 0) {
+      container.appendChild(el('div', { className: 'stats-row' }, stats));
     }
 
     // Taxonomy — show rank labels, clickable to search
@@ -319,6 +357,11 @@ var NatureApp = (function () {
     var desc = species.description || species.wikipedia_summary;
     if (desc) {
       container.appendChild(makeSection('About', el('p', { textContent: stripHtml(desc) })));
+    }
+
+    // Conservation detail
+    if (csObj && csObj.description) {
+      container.appendChild(makeSection('Conservation Status', el('p', { textContent: stripHtml(csObj.description) })));
     }
 
     // Habitat

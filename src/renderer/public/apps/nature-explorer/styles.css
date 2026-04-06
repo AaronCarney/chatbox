@@ -131,7 +131,13 @@ body {
   font-size: 12px;
   color: #9090a0;
   font-style: italic;
-  margin: 2px 0 6px;
+  margin: 2px 0 4px;
+}
+
+.species-card-obs {
+  font-size: 11px;
+  color: #7a7a8a;
+  margin-top: 2px;
 }
 
 /* Conservation Badges */
@@ -463,6 +469,60 @@ body {
 .no-results-icon {
   font-size: 36px;
   margin-bottom: 8px;
+}
+
+/* Detail tags row */
+.detail-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.badge-type {
+  background: #2d4a2d;
+  color: #7ec87e;
+}
+
+.badge-rank {
+  background: #2d2d4a;
+  color: #b0b0be;
+}
+
+.badge-endemic {
+  background: #4a3d2d;
+  color: #c4a87a;
+}
+
+/* Stats row */
+.stats-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  flex: 1;
+  min-width: 100px;
+  background: #252540;
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #7ec87e;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #9090a0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
 }
 
 /* Photo gallery strip */

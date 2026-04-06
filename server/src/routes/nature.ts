@@ -81,6 +81,8 @@ function normalizeTaxon(taxon: any): NormalizedSpecies | null {
     type: TAXON_TYPE_MAP[iconicName] || 'animal',
     image_url: photo?.medium_url || null,
     iucn_status: taxon.conservation_status?.status || null,
+    observations_count: taxon.observations_count || null,
+    rank: taxon.rank || null,
   };
 }
 
@@ -180,18 +182,35 @@ natureRouter.get('/nature/species/:id', async (req: Request, res: Response) => {
         credit: tp.photo?.attribution || null,
       }));
 
+    // Conservation status enrichment
+    const cs = taxon.conservation_status;
+    const conservation = cs ? {
+      status: cs.status || null,
+      status_name: cs.status_name || null,
+      authority: cs.authority || null,
+      description: cs.description || null,
+    } : null;
+
+    // Extract preferred place (native range) from ancestors
+    const nativeRange = taxon.listed_taxa_count || null;
+    const isEndemic = taxon.endemic || false;
+    const isExtinct = taxon.extinct || false;
+
     res.json({
       id: rawId,
       common_name: name,
       scientific_name: taxon.name,
       taxonomy,
+      type: TAXON_TYPE_MAP[taxon.iconic_taxon_name || ''] || 'animal',
       description: taxon.wikipedia_summary || null,
       habitat: null,
       images,
-      iucn_status: taxon.conservation_status?.status || null,
+      iucn_status: cs?.status || null,
+      conservation,
+      is_extinct: isExtinct,
+      is_endemic: isEndemic,
+      rank: taxon.rank || null,
       ancestors: (taxon.ancestors || []).map((a: any) => ({ rank: a.rank, name: a.name })),
-      wikipedia_url: taxon.wikipedia_url || null,
-      inaturalist_url: `https://www.inaturalist.org/taxa/${numericId}`,
       observations_count: taxon.observations_count || null,
     });
   } catch (err) {
