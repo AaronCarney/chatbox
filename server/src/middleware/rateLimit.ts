@@ -13,8 +13,8 @@ export const chatLimiter = rateLimit({
 });
 
 export const generalLimiter = rateLimit({
-  windowMs: 60000, // 1 minute
-  max: 100, // 100 requests per windowMs
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per 15 minutes (burst cap)
   standardHeaders: true,
   legacyHeaders: false,
 });

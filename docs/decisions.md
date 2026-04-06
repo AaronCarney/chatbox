@@ -49,6 +49,15 @@
 | Worker bundling | Vite `worker.format: 'es'` + separate worker entry | ES format allows TF.js code-splitting inside the worker. Main bundle never loads TF.js. |
 | Server logging | MIME type only, no pixel data | Spec: "no frame pixel data persisted." Logs `image/jpeg` not base64 content. |
 
+## Deferred Safety Features
+
+| Feature | Spec section | Status | Rationale |
+|---|---|---|---|
+| CSP `nonce-{RANDOM}` on `script-src` | §8 Risk 5 | Deferred | No inline scripts in the app — `'self'` sufficient. Would add if user-generated content or markdown-to-HTML pipeline is introduced. |
+| `tool_choice: "none"` for conceptual questions | §8 Risk 6 | Unimplemented | Would reduce unnecessary tool calls on knowledge questions. Not a safety risk — `'auto'` still respects system prompt boundaries. Post-MVP enhancement. |
+| Per-app HMAC tokens | §2 Pseudonymous identity | Generated, not applied | `SessionManager.generateAppToken()` exists but isn't wired into app launches. Cross-app unlinkability is already enforced by iframe sandbox (no `allow-same-origin`). Wire when multi-tenant app marketplace is added. |
+| Session TTL enforcement | §7, §8 Risk 10 | Not enforced | Redis omitted (see tradeoffs). In-memory sessions live for the browser tab lifetime. Acceptable for demo scale — sessions are ephemeral by architecture. |
+
 ## Tradeoffs Accepted
 
 | Tradeoff | Accepted risk | Mitigation |

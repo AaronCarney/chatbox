@@ -415,7 +415,7 @@ Persists app state to the parent's localStorage, keyed by app ID. Called automat
 
 **State persistence lifecycle:**
 
-1. **Save:** App calls `ChatBridge.saveState(data)` after each state change → parent stores at `chatbridge:save:{appId}` in localStorage
+1. **Save:** App calls `ChatBridge.saveState(data)` after each state change → parent stores at `chatbridge:save:{sessionId}:{appId}` in localStorage (session-scoped to prevent cross-tab clobber)
 2. **Restore:** On `launch_app` tool call, parent reads `chatbridge:save:{appId}` from localStorage and passes it as `savedState` in the `task.launch` payload
 3. **Resume:** App's `init(savedState)` restores the game/session from the saved state object
 4. **Scope:** State survives page refreshes and app switches within the same browser. Cleared when localStorage is cleared.
