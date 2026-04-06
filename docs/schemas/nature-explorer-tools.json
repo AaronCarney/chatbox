@@ -1,0 +1,299 @@
+{
+  "app_id": "nature-explorer",
+  "app_name": "Nature Explorer",
+  "description_for_model": "Interactive species exploration tool that lets students discover animals and plants worldwide. Uses iNaturalist API for species observations and Perenual API for plant details. Students can search by name, explore habitats and regions, learn taxonomy, see images, and discover random species. Renders rich species profiles in the iframe with educational context. Session ends when student closes the app.",
+  "iframe_url": "/apps/nature-explorer/index.html",
+  "auth_type": "none",
+  "tools": [
+    {
+      "name": "search_species",
+      "description": "Search for animals or plants by name, keyword, or scientific term. Returns a list of matching species with basic info (common name, scientific name, image URL, habitat type). Use this when students ask about specific animals like 'monarch butterflies' or plants like 'shade-loving houseplants'.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Search term: common name (e.g., 'monarch butterfly'), scientific name (e.g., 'Danaus plexippus'), or keyword (e.g., 'desert predators'). Required."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["animal", "plant", "all"],
+            "description": "Filter results: 'animal' (birds, insects, mammals, etc.), 'plant' (flowering plants, trees, ferns, etc.), or 'all' for both. Defaults to 'all'."
+          },
+          "region": {
+            "type": "string",
+            "enum": ["North America", "South America", "Europe", "Africa", "Asia", "Australia", "Oceania", "worldwide"],
+            "description": "Geographic region to filter observations by. Defaults to 'worldwide'. Helps focus results (e.g., 'Amazon rainforest' implies South America)."
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_species_details",
+      "description": "Get comprehensive information about a specific species: full description, taxonomy (kingdom, phylum, class, order, family, genus, species), habitat, diet, behavior, conservation status, fun facts, and images. Use this after search_species to show detailed info, or when student asks 'tell me more' or 'what's the difference between X and Y'.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "species_id": {
+            "type": "string",
+            "description": "Unique species identifier returned from search_species (e.g., 'inaturalist:12345' or 'perenual:67890'). Required."
+          },
+          "include_images": {
+            "type": "boolean",
+            "description": "Include images/photos in the detailed profile. Defaults to true. Renders in the iframe."
+          },
+          "include_similar": {
+            "type": "boolean",
+            "description": "Include 'similar species' section (e.g., frogs vs. toads). Defaults to true."
+          }
+        },
+        "required": ["species_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "explore_habitat",
+      "description": "Browse species by habitat type or geographic region. Returns a curated list of common species for that environment with thumbnails and brief descriptions. Use when students ask 'what animals live in the Amazon?' or 'show me rainforest plants' or 'what's in a coral reef?'. Great for discovery and comparison across species.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "habitat": {
+            "type": "string",
+            "enum": ["rainforest", "desert", "coral reef", "ocean", "forest", "grassland", "arctic", "wetland", "mountains", "urban"],
+            "description": "Habitat type to explore. Each habitat has typical species pre-curated from iNaturalist observations."
+          },
+          "region": {
+            "type": "string",
+            "enum": ["North America", "South America", "Europe", "Africa", "Asia", "Australia", "Oceania", "worldwide"],
+            "description": "Geographic region to narrow the habitat search. Defaults to 'worldwide'."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["animal", "plant", "all"],
+            "description": "Filter by organism type. Defaults to 'all'."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Number of species to return (for pagination). Defaults to 12."
+          }
+        },
+        "required": ["habitat"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_random_species",
+      "description": "Surprise me! Get a random interesting species. Returns a single detailed species profile with images and fun facts. Great for engagement and discovery when students want to learn something unexpected.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["animal", "plant", "all"],
+            "description": "Filter by organism type. 'all' includes both animals and plants. Defaults to 'all'."
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["easy", "medium", "hard", "any"],
+            "description": "Educational difficulty level. 'easy': common species (house cats, oak trees), 'medium': interesting but moderately well-known, 'hard': rare or unusual species that teach deeper concepts. Defaults to 'any'."
+          },
+          "region": {
+            "type": "string",
+            "enum": ["North America", "South America", "Europe", "Africa", "Asia", "Australia", "Oceania", "worldwide"],
+            "description": "Preference for geographic region. Helps pick species from different parts of the world. Defaults to 'worldwide'."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "compare_species",
+      "description": "Compare two or more species side-by-side: taxonomy, habitat, diet, behavior, size, conservation status. Renders comparison table in iframe. Use when student asks 'what's the difference between a frog and a toad?' or 'compare lions and tigers'.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "species_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 4,
+            "description": "Array of 2-4 species IDs to compare (from search_species results). Required."
+          },
+          "aspects": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["taxonomy", "habitat", "diet", "behavior", "size", "lifespan", "conservation", "adaptations"]
+            },
+            "description": "Which aspects to compare. Defaults to all if not specified."
+          }
+        },
+        "required": ["species_ids"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "api_details": {
+    "inaturalist_base_url": "https://api.inaturalist.org/v1",
+    "perenual_base_url": "https://perenual.com/api",
+    "inaturalist_endpoints": {
+      "search_taxa": "/taxa/autocomplete",
+      "taxa_details": "/taxa/{id}",
+      "observations": "/observations",
+      "search_places": "/places/autocomplete"
+    },
+    "perenual_endpoints": {
+      "search_plants": "/species-list",
+      "plant_details": "/species/details/{id}",
+      "search_by_common": "/species-list"
+    }
+  },
+  "return_shapes": {
+    "search_species_response": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "description": "Unique species ID (inaturalist or perenual)" },
+              "common_name": { "type": "string" },
+              "scientific_name": { "type": "string" },
+              "type": { "type": "string", "enum": ["animal", "plant"] },
+              "image_url": { "type": "string" },
+              "habitat": { "type": "string" },
+              "iucn_status": { "type": "string", "enum": ["LC", "NT", "VU", "EN", "CR", "EX", "DD"] }
+            }
+          }
+        },
+        "total": { "type": "integer" }
+      }
+    },
+    "get_species_details_response": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "common_name": { "type": "string" },
+        "scientific_name": { "type": "string" },
+        "taxonomy": {
+          "type": "object",
+          "properties": {
+            "kingdom": { "type": "string" },
+            "phylum": { "type": "string" },
+            "class": { "type": "string" },
+            "order": { "type": "string" },
+            "family": { "type": "string" },
+            "genus": { "type": "string" },
+            "species": { "type": "string" }
+          }
+        },
+        "description": { "type": "string" },
+        "habitat": { "type": "string" },
+        "diet": { "type": "string" },
+        "behavior": { "type": "string" },
+        "fun_facts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "iucn_status": { "type": "string" },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "credit": { "type": "string" }
+            }
+          }
+        },
+        "similar_species": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "difference": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "explore_habitat_response": {
+      "type": "object",
+      "properties": {
+        "habitat": { "type": "string" },
+        "region": { "type": "string" },
+        "species": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "common_name": { "type": "string" },
+              "type": { "type": "string" },
+              "image_url": { "type": "string" },
+              "brief_description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "get_random_species_response": {
+      "description": "Same structure as get_species_details_response",
+      "type": "object"
+    },
+    "compare_species_response": {
+      "type": "object",
+      "properties": {
+        "comparison": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "species_id": { "type": "string" },
+              "common_name": { "type": "string" },
+              "taxonomy": { "type": "object" },
+              "habitat": { "type": "string" },
+              "diet": { "type": "string" },
+              "size": { "type": "string" },
+              "lifespan": { "type": "string" }
+            }
+          }
+        },
+        "similarities": { "type": "array", "items": { "type": "string" } },
+        "differences": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "integration_notes": {
+    "when_to_use_tools": [
+      "Student asks for specific species: 'Tell me about monarch butterflies' → search_species + get_species_details",
+      "Student asks about habitats: 'What animals live in the Amazon?' → explore_habitat",
+      "Student wants discovery: 'Show me something cool!' → get_random_species",
+      "Student wants comparisons: 'What's the difference between X and Y?' → compare_species",
+      "Student wants to see images/details: Always call get_species_details after search to render rich profile"
+    ],
+    "iframe_rendering": "All tools return data that the iframe renders as rich, interactive species profiles with images, taxonomy trees, habitat maps, and educational content. The chatbot describes findings; the iframe shows visual details.",
+    "task_completion": "Nature Explorer is browse-based discovery, not task-based (unlike chess/go). Task.completed is never called. Session ends when student closes the iframe. The chatbot guides exploration through suggestions and answers questions about species shown.",
+    "educational_flow": {
+      "step_1": "Student asks a natural question about an animal/plant",
+      "step_2": "Chatbot uses search_species or explore_habitat to find matches",
+      "step_3": "Chatbot calls get_species_details to fetch rich data",
+      "step_4": "Iframe renders full species profile (images, taxonomy, facts)",
+      "step_5": "Chatbot discusses findings, asks follow-up questions, suggests related species",
+      "step_6": "Student can ask for comparisons, habitat exploration, or random discovery"
+    },
+    "content_safety": "All content from iNaturalist and Perenual is curated for K-12 students. Filter out graphic predation/death imagery in images; focus on educational anatomy/behavior photos.",
+    "api_keys": "iNaturalist API requires no key. Perenual API requires free API key in env var PERENUAL_API_KEY."
+  }
+}

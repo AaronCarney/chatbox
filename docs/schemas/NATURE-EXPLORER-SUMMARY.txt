@@ -1,0 +1,369 @@
+================================================================================
+                    NATURE EXPLORER TOOL SCHEMAS
+                         ChatBridge App Design
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+Educational app for K-12 students to explore animals and plants worldwide.
+Chatbot (GPT-4o) orchestrates iNaturalist + Perenual APIs. Students learn
+through guided discovery, rich visual profiles, and species comparisons.
+
+KEY DIFFERENCE FROM CHESS/GO
+=============================
+- Chess/Go:        Game-based (objective: win). Call task.completed() on finish.
+- Nature Explorer: Browse-based (objective: learn). No completion event.
+                   Session ends when student closes iframe.
+
+THE 5 TOOLS
+================================================================================
+
+1. search_species(query, type?, region?)
+   - Find animals/plants by name or keyword
+   - Returns: [id, common_name, scientific_name, image_url, habitat, iucn_status]
+   - Use: "Tell me about monarch butterflies"
+
+2. get_species_details(species_id, include_images?, include_similar?)
+   - Full species profile with all educational data
+   - Returns: taxonomy, description, images, fun_facts, similar_species
+   - Use: After search_species to show rich profile in iframe
+
+3. explore_habitat(habitat, region?, type?, limit?)
+   - Browse 12+ species from a specific ecosystem
+   - Habitats: rainforest, desert, coral reef, ocean, forest, etc.
+   - Returns: [id, common_name, type, image_url, brief_description]
+   - Use: "What animals live in the Amazon?"
+
+4. get_random_species(type?, difficulty?, region?)
+   - Surprise discovery tool. Full profile returned immediately.
+   - Difficulty: easy (common), medium (interesting), hard (rare/unusual)
+   - Returns: Same as get_species_details
+   - Use: "Show me something cool!"
+
+5. compare_species(species_ids[], aspects?)
+   - Side-by-side comparison of 2-4 species
+   - Aspects: taxonomy, habitat, diet, behavior, size, lifespan, conservation
+   - Returns: comparison table + similarities/differences narrative
+   - Use: "What's the difference between a frog and a toad?"
+
+CHATBOT DECISION TREE
+================================================================================
+
+Student asks:
+  |
+  +-- About SPECIFIC species? → search_species() → get_species_details()
+  |
+  +-- About HABITAT/ECOSYSTEM? → explore_habitat()
+  |
+  +-- Want COMPARISON? → search_species() x2 → compare_species()
+  |
+  +-- Want DISCOVERY? → get_random_species()
+  |
+  +-- Want DETAILS on current? → get_species_details(include_similar=true)
+  |
+  +-- Follow-up questions? → Chain tools to deepen learning
+
+INTEGRATION FLOW
+================================================================================
+
+1. Student: "Tell me about monarch butterflies"
+
+2. Chatbot: Calls search_species("monarch butterfly")
+   Response: [{id: "inaturalist:12345", common_name: "Monarch", ...}]
+
+3. Chatbot: Calls get_species_details("inaturalist:12345")
+   Response: Full profile with taxonomy, images, fun facts
+
+4. Iframe: Renders beautiful profile card with images and facts
+
+5. Chatbot: Narrates findings
+   "Look at those distinctive orange and black wings! Monarchs migrate 3,000
+    miles to Mexico. Their caterpillars eat milkweed, which is toxic—the
+    butterflies store the toxin and become poisonous themselves. See how their
+    bright colors warn predators? That's called aposematism!"
+
+6. Student: "What's that migration all about?"
+   Chatbot: Discusses, suggests learning more about adaptations
+
+7. Student closes app. NO task.completed() called.
+
+API INTEGRATION
+================================================================================
+
+iNaturalist (FREE, no auth):
+  GET /api/v1/taxa/autocomplete?q=monarch
+  GET /api/v1/taxa/{id}
+  GET /api/v1/observations?place_id=X&taxon_id=Y
+
+Perenual (FREE tier, requires API key):
+  GET /api/species-list?q=shade+plant&key=YOUR_KEY
+  GET /api/species/details/{id}?key=YOUR_KEY
+
+IFRAME RESPONSIBILITIES
+================================================================================
+- Render species cards (images, taxonomy, facts)
+- Render habitat grids (12 species thumbnails)
+- Render comparison tables (side-by-side)
+- Handle images safely (validate src, no XSS)
+- Save/restore state (localStorage, ephemeral)
+
+CHATBOT RESPONSIBILITIES
+================================================================================
+- Decide WHEN to use each tool (context-aware)
+- Call tools in sequence (search → details → compare)
+- Narrate findings (explain the science)
+- Guide learning (ask follow-up questions)
+- Chain tools (e.g., search → details → explore similar)
+
+RETURN SHAPE EXAMPLES
+================================================================================
+
+search_species response:
+{
+  "results": [
+    {
+      "id": "inaturalist:31156",
+      "common_name": "Monarch Butterfly",
+      "scientific_name": "Danaus plexippus",
+      "type": "animal",
+      "image_url": "https://...",
+      "habitat": "Milkweed meadows",
+      "iucn_status": "LC"
+    }
+  ],
+  "total": 1
+}
+
+get_species_details response:
+{
+  "id": "inaturalist:31156",
+  "common_name": "Monarch Butterfly",
+  "scientific_name": "Danaus plexippus",
+  "taxonomy": {
+    "kingdom": "Animalia",
+    "phylum": "Arthropoda",
+    "class": "Insecta",
+    "order": "Lepidoptera",
+    "family": "Nymphalidae",
+    "genus": "Danaus",
+    "species": "Danaus plexippus"
+  },
+  "description": "Long educational text about monarchs...",
+  "habitat": "Milkweed meadows, prairies, gardens",
+  "diet": "Milkweed (caterpillar), nectar (adult)",
+  "behavior": "Long-distance migration, camouflage, warning coloration",
+  "fun_facts": [
+    "Monarchs migrate up to 3,000 miles to Mexico for winter",
+    "Caterpillars eat milkweed, which is toxic to most animals",
+    "Butterflies store the toxins in their bodies for protection",
+    "Their orange color warns predators: 'I'm poisonous!'"
+  ],
+  "iucn_status": "LC",
+  "images": [
+    {"url": "https://...", "credit": "iNaturalist user xyz"},
+    {"url": "https://...", "credit": "iNaturalist user abc"}
+  ],
+  "similar_species": [
+    {"id": "inaturalist:99999", "name": "Viceroy Butterfly",
+     "difference": "Smaller, with extra black line on hindwing"}
+  ]
+}
+
+explore_habitat response:
+{
+  "habitat": "rainforest",
+  "region": "South America",
+  "species": [
+    {
+      "id": "inaturalist:12345",
+      "common_name": "Poison Dart Frog",
+      "type": "animal",
+      "image_url": "https://...",
+      "brief_description": "Tiny, colorful frog with toxic skin secretions"
+    },
+    ...12 more species...
+  ]
+}
+
+compare_species response:
+{
+  "comparison": [
+    {
+      "species_id": "inaturalist:1001",
+      "common_name": "Frog",
+      "taxonomy": {...},
+      "habitat": "Near water, wet places",
+      "diet": "Insects, small animals",
+      "size": "Small to large",
+      "lifespan": "5-40 years",
+      "conservation": "Varies by species"
+    },
+    {
+      "species_id": "inaturalist:1002",
+      "common_name": "Toad",
+      "taxonomy": {...},
+      "habitat": "Dry land, gardens",
+      "diet": "Insects, small animals",
+      "size": "Small to large",
+      "lifespan": "10-12 years",
+      "conservation": "Least Concern"
+    }
+  ],
+  "similarities": [
+    "Both are amphibians",
+    "Both eat insects",
+    "Both start life in water (mostly)"
+  ],
+  "differences": [
+    "Frogs have smooth, moist skin; toads have bumpy, dry skin",
+    "Frogs are built for jumping; toads for walking",
+    "Frogs need water to breed; toads are more independent",
+    "Toads have toxins in their skin for protection"
+  ]
+}
+
+CONTENT SAFETY
+================================================================================
+- iNaturalist community already moderates images (exclude adult content)
+- Filter out graphic predation/death imagery (unless scientific context)
+- Keep descriptions age-appropriate (clinical, not graphic)
+- No persistent student data (COPPA/FERPA compliance)
+- Test with real K-12 queries before launch
+
+TASK COMPLETION MODEL
+================================================================================
+Nature Explorer is BROWSE-BASED, not TASK-BASED:
+
+Chess/Go:              Nature Explorer:
+- Student plays move   - Student explores species
+- Chatbot responds     - Chatbot guides discovery
+- Game ends → WIN      - Session ends → CLOSE APP
+- Call complete()      - Don't call complete()
+
+The exploration itself IS the learning objective. No explicit "finish" needed.
+
+FILES IN THIS SCHEMA
+================================================================================
+1. nature-explorer-tools.json
+   - Complete tool definitions (name, description, parameters, returns)
+   - API endpoint references
+   - Integration notes
+
+2. NATURE-EXPLORER-DESIGN.md
+   - Full design rationale and philosophy
+   - Why each tool exists
+   - Chatbot decision-making guide
+   - Example conversations
+   - Content safety approach
+
+3. NATURE-EXPLORER-DEV-GUIDE.md
+   - Code templates (bridge.js, API clients, HTML)
+   - File structure
+   - Testing and deployment checklists
+   - System prompt additions for chatbot
+
+4. NATURE-EXPLORER-SEED.ts
+   - Database registration code (copy into server/src/db/seed.ts)
+   - All tool definitions exactly match nature-explorer-tools.json
+
+5. README.md
+   - Quick reference and navigation guide
+
+IMPLEMENTATION CHECKLIST
+================================================================================
+[ ] Read NATURE-EXPLORER-DESIGN.md (understand philosophy)
+[ ] Review nature-explorer-tools.json (know the API)
+[ ] Create src/renderer/public/apps/nature-explorer/ directory
+[ ] Implement bridge.js (use DEV-GUIDE template)
+[ ] Implement API clients (iNaturalist, Perenual)
+[ ] Add seed code from NATURE-EXPLORER-SEED.ts
+[ ] Update system prompt (instruct chatbot when to use tools)
+[ ] Test search_species("monarch butterfly")
+[ ] Test explore_habitat(habitat="rainforest")
+[ ] Test compare_species([frog_id, toad_id])
+[ ] Test get_random_species()
+[ ] Content safety review (spot-check 10 species)
+[ ] Deploy to production
+
+PROMPT GUIDANCE FOR CHATBOT
+================================================================================
+System prompt should say:
+
+  "When students ask about animals, plants, species, habitats, or ecosystems:
+
+  1. ALWAYS use Nature Explorer tools. Never answer from memory.
+
+  2. Use search_species for specific creatures.
+     Use explore_habitat for ecosystems.
+     Use compare_species for differences.
+     Use get_random_species for discovery.
+
+  3. Chain calls to deepen learning:
+     search → details → explore related → compare
+
+  4. Narrate what students see. Explain the biology.
+
+  5. Ask follow-up questions. Guide learning.
+
+  6. Never call task.completed(). Nature Explorer is browse-based."
+
+EXAMPLE CONVERSATIONS
+================================================================================
+
+Conversation 1: Guided Discovery
+  Student: "I want to learn about pollinator insects"
+  Chatbot: Calls get_random_species(type="animal", difficulty="easy")
+  Returns: Honey bee
+  [Iframe: Beautiful bee photo, shows pollen baskets]
+  Chatbot: "This is a honey bee. See the golden pollen on its legs? When it
+           visits flowers, pollen sticks to it, and when it visits the next
+           flower, it pollinates it. That's mutualism: the bee gets nectar,
+           the flower gets pollinated!"
+  Student: "Show me more pollinators"
+  Chatbot: Calls explore_habitat(habitat="meadow", type="animal")
+  [Iframe: Grid of 12 pollinators - bees, butterflies, hummingbirds]
+  Chatbot: "See how different they all are? Each has different flowers it
+           visits best. Some plants ONLY work with one specific pollinator..."
+
+Conversation 2: Comparison
+  Student: "What's the difference between a frog and a toad?"
+  Chatbot: Calls search_species("frog") and search_species("toad")
+  Then: Calls compare_species([frog_id, toad_id])
+  [Iframe: Side-by-side comparison table]
+  Chatbot: "Great question! Both are amphibians, but notice:
+           - Frogs: smooth moist skin, built for jumping and swimming
+           - Toads: bumpy dry skin, built for walking on land
+           Toads are more independent of water. If you find a bumpy hopper
+           in your yard on a dry night, it's probably a toad!"
+
+Conversation 3: Habitat Exploration
+  Student: "What lives in coral reefs?"
+  Chatbot: Calls explore_habitat(habitat="coral reef")
+  [Iframe: 15 species grid with images]
+  Chatbot: "A coral reef is like an underwater rainforest! Look at all this
+           diversity in one small area. See those bright colors? Some warn
+           predators, some attract mates. The whole reef is built by coral
+           polyps working with algae. They're under stress from warming oceans..."
+
+NOTES FOR DEVELOPERS
+================================================================================
+- Mirror the chess/go code style (iframe + bridge pattern)
+- Use postMessage for iframe ↔ chatbot communication
+- Validate all API responses (handle errors gracefully)
+- Test with slow networks (add loading states)
+- Use textContent (not innerHTML) for safety
+- Filter images: validate URLs, check content rating
+- No persistent student data (ephemeral per session)
+- Resize iframe dynamically based on content
+
+FOR PRODUCT MANAGERS
+================================================================================
+- Launch with 5 tools (sufficient for K-12 use cases)
+- Test with 5 real classrooms before wider rollout
+- Gather teacher feedback on what species kids ask about
+- Monitor API costs (iNaturalist free, Perenual affordable)
+- Plan future: citizen science integration, AR identification, offline mode
+
+================================================================================
+                              END OF SUMMARY
+================================================================================
