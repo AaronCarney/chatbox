@@ -14,12 +14,17 @@ export function dataUrlToImageData(dataUrl: string): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 224
-      canvas.height = 224
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, 224, 224)
-      resolve(ctx.getImageData(0, 0, 224, 224))
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = 224
+        canvas.height = 224
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return reject(new Error('Canvas 2D context unavailable'))
+        ctx.drawImage(img, 0, 0, 224, 224)
+        resolve(ctx.getImageData(0, 0, 224, 224))
+      } catch (e) {
+        reject(e)
+      }
     }
     img.onerror = () => reject(new Error('Failed to decode capture image'))
     img.src = dataUrl

@@ -9,10 +9,11 @@ export type ClassifyResult = NsfwjsResult | OpenaiResult
 export type Action = 'blur' | 'unblur' | 'hard_block' | 'none'
 
 export class SafetyStateMachine {
-  state: 'clean' | 'flagged' = 'clean'
+  state: 'clean' | 'flagged' | 'hard_blocked' = 'clean'
   private cleanCount = 0
 
   update(result: ClassifyResult): Action {
+    if (this.state === 'hard_blocked') return 'none'
     if (result.source === 'openai') return this.handleOpenai(result)
     return this.handleNsfwjs(result)
   }
@@ -54,7 +55,10 @@ export class SafetyStateMachine {
   private handleOpenai(result: OpenaiResult): Action {
     const { categories, categoryScores } = result
     for (const cat of HARD_BLOCK_CATEGORIES) {
-      if ((categoryScores[cat] ?? 0) > 0.01) return 'hard_block'
+      if ((categoryScores[cat] ?? 0) > 0.01) {
+        this.state = 'hard_blocked'
+        return 'hard_block'
+      }
     }
     const anyFlagged = Object.values(categories).some(v => v)
     if (anyFlagged && this.state === 'clean') {

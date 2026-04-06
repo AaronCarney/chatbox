@@ -64,5 +64,22 @@ describe('SafetyStateMachine', () => {
       categoryScores: { 'sexual/minors': 0.02 },
     })
     expect(action).toBe('hard_block')
+    expect(sm.state).toBe('hard_blocked')
+  })
+
+  it('hard_blocked is terminal — ignores all subsequent updates', () => {
+    const sm = new SafetyStateMachine()
+    sm.update({
+      source: 'openai',
+      categories: { 'sexual/minors': false },
+      categoryScores: { 'sexual/minors': 0.02 },
+    })
+    expect(sm.state).toBe('hard_blocked')
+
+    const clean = { source: 'nsfwjs' as const, classes: { Porn: 0, Sexy: 0, Hentai: 0, Drawing: 0.5, Neutral: 0.5 } }
+    for (let i = 0; i < 10; i++) {
+      expect(sm.update(clean)).toBe('none')
+    }
+    expect(sm.state).toBe('hard_blocked')
   })
 })

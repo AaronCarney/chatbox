@@ -8,6 +8,12 @@ const OPENAI_INTERVAL = 30000
 
 type OnAction = (action: Action, appId: string) => void
 
+function applyAction(action: Action, iframeEl: HTMLIFrameElement) {
+  if (action === 'blur') applyBlur(iframeEl)
+  else if (action === 'unblur') removeBlur(iframeEl)
+  else if (action === 'hard_block') applyHardBlock(iframeEl)
+}
+
 export function startMonitoring(
   getActiveApp: () => { id: string; iframeEl: HTMLIFrameElement } | null,
   broker: PostMessageBroker,
@@ -18,11 +24,16 @@ export function startMonitoring(
   let worker: Worker | null = null
   let periodicTimer: ReturnType<typeof setInterval> | null = null
   let openaiTimer: ReturnType<typeof setInterval> | null = null
-  let pendingRequestId: string | null = null
-  let abortController: AbortController | null = null
   let destroyed = false
 
-  // Init worker
+  // Separate request tracking for NSFWJS vs OpenAI paths
+  let nsfwjsRequestId: string | null = null
+  let openaiRequestId: string | null = null
+  let openaiInFlight = false
+  let abortController: AbortController | null = null
+  // Store last captured image for OpenAI early-warning (avoids second capture)
+  let lastCapturedImage: string | null = null
+
   worker = new Worker(new URL('./classifier.worker.ts', import.meta.url), { type: 'module' })
   worker.postMessage({ type: 'init' })
 
@@ -35,83 +46,92 @@ export function startMonitoring(
     if (!app) return
 
     if (action !== 'none') {
+      applyAction(action, app.iframeEl)
       onAction(action, app.id)
-      if (action === 'blur') applyBlur(app.iframeEl)
-      else if (action === 'unblur') removeBlur(app.iframeEl)
     }
 
-    // Trigger OpenAI if NSFWJS early warning
-    if (flagged) sendToOpenAI()
+    // Trigger OpenAI early-warning — guarded against flooding
+    if (flagged && !openaiInFlight && lastCapturedImage) {
+      sendToOpenAI(lastCapturedImage)
+    }
   }
 
-  // Listen for capture responses
-  broker.on('capture.response', (payload: any) => {
-    if (!payload?.image || payload.requestId !== pendingRequestId) return
-    pendingRequestId = null
-    dataUrlToImageData(payload.image).then((imageData) => {
-      worker?.postMessage({ type: 'classify', imageData })
-    }).catch(() => {})
-  })
+  // Single capture.response handler — routes to NSFWJS or OpenAI based on requestId
+  const captureResponseHandler = (payload: any) => {
+    if (!payload?.image) return
+
+    if (payload.requestId === nsfwjsRequestId) {
+      nsfwjsRequestId = null
+      lastCapturedImage = payload.image
+      dataUrlToImageData(payload.image).then((imageData) => {
+        worker?.postMessage({ type: 'classify', imageData })
+      }).catch(() => {})
+    } else if (payload.requestId === openaiRequestId) {
+      openaiRequestId = null
+      sendToOpenAI(payload.image)
+    }
+  }
+  broker.on('capture.response', captureResponseHandler)
 
   function triggerCapture() {
     const app = getActiveApp()
     if (!app || destroyed) return
     const reqId = crypto.randomUUID()
-    pendingRequestId = reqId
+    nsfwjsRequestId = reqId
     requestCapture(broker, app.iframeEl, reqId)
     setTimeout(() => {
-      if (pendingRequestId === reqId) pendingRequestId = null
+      if (nsfwjsRequestId === reqId) nsfwjsRequestId = null
     }, CAPTURE_TIMEOUT)
   }
 
-  async function sendToOpenAI() {
-    const app = getActiveApp()
-    if (!app || destroyed) return
+  async function sendToOpenAI(imageDataUrl: string) {
+    if (openaiInFlight || destroyed) return
+    openaiInFlight = true
 
-    const reqId = crypto.randomUUID()
-    pendingRequestId = reqId
-    requestCapture(broker, app.iframeEl, reqId)
+    abortController?.abort()
+    abortController = new AbortController()
 
-    const captureHandler = async (payload: any) => {
-      if (payload?.requestId !== reqId || !payload?.image) return
-
-      abortController?.abort()
-      abortController = new AbortController()
-
-      try {
-        const res = await fetch(`${apiUrl}/api/moderate-image`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: payload.image }),
-          signal: abortController.signal,
-        })
-        const result = await res.json()
-        const action = stateMachine.update({
-          source: 'openai',
-          categories: result.categories,
-          categoryScores: result.categoryScores,
-        })
-        if (action === 'hard_block') {
-          applyHardBlock(app.iframeEl)
-          onAction('hard_block', app.id)
-        } else if (action === 'blur') {
-          applyBlur(app.iframeEl)
-          onAction('blur', app.id)
-        }
-      } catch {
-        // Network failure — fail open, skip this cycle
+    try {
+      const res = await fetch(`${apiUrl}/api/moderate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageDataUrl }),
+        signal: abortController.signal,
+      })
+      const result = await res.json()
+      const action = stateMachine.update({
+        source: 'openai',
+        categories: result.categories,
+        categoryScores: result.categoryScores,
+      })
+      const app = getActiveApp()
+      if (app && action !== 'none') {
+        applyAction(action, app.iframeEl)
+        onAction(action, app.id)
       }
+    } catch {
+      // Network failure — fail open, skip this cycle
+    } finally {
+      openaiInFlight = false
     }
-    broker.on('capture.response', captureHandler)
   }
 
-  // Periodic capture every 5s
+  // Periodic OpenAI moderation — requests a fresh capture then sends to API
+  function triggerOpenAICapture() {
+    if (openaiInFlight || destroyed) return
+    const app = getActiveApp()
+    if (!app) return
+    const reqId = crypto.randomUUID()
+    openaiRequestId = reqId
+    requestCapture(broker, app.iframeEl, reqId)
+    setTimeout(() => {
+      if (openaiRequestId === reqId) openaiRequestId = null
+    }, CAPTURE_TIMEOUT)
+  }
+
   periodicTimer = setInterval(triggerCapture, PERIODIC_INTERVAL)
+  openaiTimer = setInterval(triggerOpenAICapture, OPENAI_INTERVAL)
 
-  // Periodic OpenAI moderation every 30s
-  openaiTimer = setInterval(() => sendToOpenAI(), OPENAI_INTERVAL)
-
-  // Event-driven triggers
   const eventTypes = ['tool.result', 'task.completed', 'app.state']
   for (const type of eventTypes) {
     broker.on(type, () => triggerCapture())
@@ -123,5 +143,6 @@ export function startMonitoring(
     if (openaiTimer) clearInterval(openaiTimer)
     abortController?.abort()
     worker?.terminate()
+    broker.off('capture.response', captureResponseHandler)
   }
 }

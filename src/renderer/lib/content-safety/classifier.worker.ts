@@ -13,7 +13,7 @@ async function init() {
   model = await nsfwjs.load('/nsfwjs-model/', { size: 224, type: 'graph' })
 
   // Pre-warm with dummy image
-  const dummy = tf.zeros([1, 224, 224, 3]) as tf.Tensor3D
+  const dummy = tf.zeros([224, 224, 3]) as tf.Tensor3D
   await model.classify(dummy as any)
   dummy.dispose()
 

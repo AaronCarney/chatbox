@@ -10,8 +10,12 @@ moderationRouter.post('/moderate-image', async (req: Request, res: Response) => 
     return;
   }
 
-  const result = await moderateImage(image);
-  res.json(result);
+  try {
+    const result = await moderateImage(image);
+    res.json(result);
+  } catch {
+    res.status(500).json({ flagged: false, categories: {}, categoryScores: {} });
+  }
 });
 
 export { moderationRouter };

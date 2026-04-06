@@ -49,6 +49,10 @@ export class PostMessageBroker {
     this.handlers.get(type)!.add(handler);
   }
 
+  off(type: string, handler: (data: any) => void): void {
+    this.handlers.get(type)?.delete(handler);
+  }
+
   sendToIframe(
     iframe: HTMLIFrameElement,
     type: string,
