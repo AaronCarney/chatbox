@@ -23,8 +23,7 @@ export function IframeManager({ appId, iframeUrl, isActive, height, sandbox, onR
     <iframe
       ref={iframeRef}
       src={iframeUrl}
-      sandbox={sandbox || 'allow-scripts'}
-      {...{ credentialless: '' } as any}
+      sandbox={sandbox ? `${sandbox} allow-same-origin` : 'allow-scripts allow-same-origin'}
       allow=""
       referrerPolicy="no-referrer"
       loading="eager"
