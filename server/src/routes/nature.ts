@@ -7,11 +7,19 @@ const natureRouter = Router();
 const INAT_BASE = 'https://api.inaturalist.org/v1';
 const PERENUAL_BASE = 'https://perenual.com/api';
 
-// Iconic taxon name → type mapping
+// Iconic taxon name → type mapping (only include K-12-appropriate kingdoms)
 const TAXON_TYPE_MAP: Record<string, 'animal' | 'plant'> = {
   Animalia: 'animal',
   Plantae: 'plant',
-  Fungi: 'plant', // group with plants for simplicity
+  Fungi: 'plant',
+  Insecta: 'animal',
+  Arachnida: 'animal',
+  Aves: 'animal',
+  Mammalia: 'animal',
+  Reptilia: 'animal',
+  Amphibia: 'animal',
+  Actinopterygii: 'animal',
+  Mollusca: 'animal',
 };
 
 // Type → iNaturalist taxon_id for filtering
@@ -56,6 +64,8 @@ async function perenualFetch(endpoint: string): Promise<any> {
 function normalizeTaxon(taxon: any): NormalizedSpecies | null {
   const iconicName = taxon.iconic_taxon_name || '';
   if (isBlockedTaxon(iconicName)) return null;
+  // Reject taxa not in our allowlist (Chromista, Protozoa, etc.)
+  if (iconicName && !TAXON_TYPE_MAP[iconicName]) return null;
 
   const name = taxon.preferred_common_name || taxon.name || '';
   const sciName = taxon.name || '';
@@ -122,7 +132,7 @@ natureRouter.get('/nature/search', async (req: Request, res: Response) => {
       }
     }
 
-    res.json({ results, total: results.length });
+    res.json({ query: q, results, total: results.length });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err: msg }, 'nature api error');
@@ -184,7 +194,7 @@ natureRouter.get('/nature/species/:id', async (req: Request, res: Response) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err: msg }, 'nature species detail failed');
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'Failed to fetch nature data' });
   }
 });
 
@@ -197,7 +207,8 @@ natureRouter.get('/nature/habitat', async (req: Request, res: Response) => {
       return;
     }
 
-    const perPage = Math.min(Number(limit) || 12, 30);
+    const parsed = Number(limit);
+    const perPage = Math.min(parsed > 0 ? Math.floor(parsed) : 12, 30);
     let endpoint = `/observations?q=${encodeURIComponent(habitat)}&quality_grade=research&photos=true&per_page=${perPage}&order=desc&order_by=votes`;
 
     if (type && typeof type === 'string' && TYPE_TAXON_ID[type]) {

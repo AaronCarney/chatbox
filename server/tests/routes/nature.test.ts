@@ -137,6 +137,7 @@ describe('Nature API routes', () => {
         iucn_status: 'LC',
       });
       expect(res.body.results[1].type).toBe('plant');
+      expect(res.body.query).toBe('butterfly');
     });
 
     it('returns 400 when q is missing', async () => {

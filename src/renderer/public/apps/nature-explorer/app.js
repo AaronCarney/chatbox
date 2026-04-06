@@ -51,7 +51,7 @@ var NatureApp = (function () {
 
   function makeImgWithFallback(src, alt, className) {
     var img = el('img', { src: src || FALLBACK_IMG, alt: alt || '', className: className || '' });
-    img.onerror = function () { this.src = FALLBACK_IMG; this.onerror = null; };
+    img.onerror = function () { this.onerror = null; this.src = FALLBACK_IMG; };
     return img;
   }
 
@@ -90,6 +90,7 @@ var NatureApp = (function () {
 
   function showLoading(containerId) {
     var container = document.getElementById(containerId);
+    if (!container) return;
     while (container.firstChild) container.removeChild(container.firstChild);
     container.appendChild(el('div', { className: 'loading' }, [
       el('div', { className: 'loading-spinner' }),
@@ -100,6 +101,7 @@ var NatureApp = (function () {
 
   function showError(containerId, message) {
     var container = document.getElementById(containerId);
+    if (!container) return;
     while (container.firstChild) container.removeChild(container.firstChild);
     container.appendChild(el('div', { className: 'error-msg', textContent: message }));
     showView(containerId);
@@ -175,7 +177,11 @@ var NatureApp = (function () {
     var grid = el('div', { className: 'species-grid' });
     results.forEach(function (species) {
       var card = makeSpeciesCard(species, function () {
-        if (species.id) fetchSpeciesDetail(species.id);
+        if (species.id && species.id.indexOf('inat:') === 0) {
+          fetchSpeciesDetail(species.id);
+        } else if (species.id) {
+          showError('detail', 'Detailed view is not available for this plant. Ask the chatbot for more info!');
+        }
       });
       grid.appendChild(card);
     });
