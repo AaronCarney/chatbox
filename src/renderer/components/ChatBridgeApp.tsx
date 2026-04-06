@@ -386,59 +386,9 @@ export function ChatBridgeApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', height: '100%', overflow: 'hidden', backgroundColor: '#16161e' }}>
-      {/* App panel — left side when active, hidden when no app */}
-      {hasActiveApp && (
-        <div style={{
-          flex: '1 1 60%',
-          borderRight: '2px solid #2d2d3d',
-          backgroundColor: '#1a1a2e',
-          position: 'relative',
-          overflow: 'auto',
-          minWidth: 0,
-        }}>
-          {Array.from(apps.values())
-            .filter((app) => app.status !== 'serialized')
-            .map((app) => (
-              <IframeManager
-                key={app.id}
-                appId={app.id}
-                iframeUrl={app.iframeUrl}
-                isActive={app.status === 'active'}
-                height={iframeHeights.get(app.id)}
-                sandbox={app.id === 'spotify' ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
-                onRef={(el) => {
-                  if (el) {
-                    iframeRefs.current.set(app.id, el)
-                  } else {
-                    iframeRefs.current.delete(app.id)
-                  }
-                }}
-              />
-            ))}
-          <SafetyOverlay visible={safetyOverlay.visible} hardBlock={safetyOverlay.hardBlock} />
-        </div>
-      )}
-
-      {/* Hidden iframes for inactive apps (keep alive for state) */}
-      {!hasActiveApp && Array.from(apps.values())
-        .filter((app) => app.status !== 'serialized' && app.status !== 'active')
-        .map((app) => (
-          <IframeManager
-            key={app.id}
-            appId={app.id}
-            iframeUrl={app.iframeUrl}
-            isActive={false}
-            sandbox={'allow-scripts'}
-            onRef={(el) => {
-              if (el) iframeRefs.current.set(app.id, el)
-              else iframeRefs.current.delete(app.id)
-            }}
-          />
-        ))}
-
-      {/* Chat panel — right side, or full width when no app */}
+      {/* Chat panel — left side, or full width when no app */}
       <div style={{
-        flex: hasActiveApp ? '1 1 40%' : '1 1 100%',
+        flex: hasActiveApp ? '0 0 35%' : '1 1 100%',
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
@@ -562,6 +512,53 @@ export function ChatBridgeApp() {
           </button>
         </div>
       </div>
+
+      {/* App panel — right side when active */}
+      {hasActiveApp && (
+        <div style={{
+          flex: '1 1 65%',
+          borderLeft: '2px solid #2d2d3d',
+          backgroundColor: '#1a1a2e',
+          position: 'relative',
+          overflow: 'auto',
+          minWidth: 0,
+        }}>
+          {Array.from(apps.values())
+            .filter((app) => app.status !== 'serialized')
+            .map((app) => (
+              <IframeManager
+                key={app.id}
+                appId={app.id}
+                iframeUrl={app.iframeUrl}
+                isActive={app.status === 'active'}
+                height={iframeHeights.get(app.id)}
+                sandbox={app.id === 'spotify' ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
+                onRef={(el) => {
+                  if (el) iframeRefs.current.set(app.id, el)
+                  else iframeRefs.current.delete(app.id)
+                }}
+              />
+            ))}
+          <SafetyOverlay visible={safetyOverlay.visible} hardBlock={safetyOverlay.hardBlock} />
+        </div>
+      )}
+
+      {/* Hidden iframes for inactive apps (keep alive for state) */}
+      {!hasActiveApp && Array.from(apps.values())
+        .filter((app) => app.status !== 'serialized' && app.status !== 'active')
+        .map((app) => (
+          <IframeManager
+            key={app.id}
+            appId={app.id}
+            iframeUrl={app.iframeUrl}
+            isActive={false}
+            sandbox={'allow-scripts'}
+            onRef={(el) => {
+              if (el) iframeRefs.current.set(app.id, el)
+              else iframeRefs.current.delete(app.id)
+            }}
+          />
+        ))}
     </div>
   )
 }

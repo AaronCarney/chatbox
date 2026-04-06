@@ -111,9 +111,13 @@ var NatureApp = (function () {
     while (container.firstChild) container.removeChild(container.firstChild);
   }
 
+  var API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? ''
+    : 'https://chatbox-production-d06b.up.railway.app';
+
   function fetchSpeciesDetail(speciesId) {
     showLoading('detail');
-    fetch('/api/nature/species/' + encodeURIComponent(speciesId))
+    fetch(API_BASE + '/api/nature/species/' + encodeURIComponent(speciesId))
       .then(function (res) { return res.json(); })
       .then(function (detail) {
         renderSpeciesDetail(detail);

@@ -1,6 +1,11 @@
 (function () {
   'use strict';
 
+  // API base: Railway in production, relative in dev (Vite proxy)
+  var API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? ''
+    : 'https://chatbox-production-d06b.up.railway.app';
+
   function buildQuery(params) {
     var parts = [];
     Object.keys(params).forEach(function (k) {
@@ -12,7 +17,7 @@
   }
 
   function apiGet(path) {
-    return fetch(path).then(function (res) {
+    return fetch(API_BASE + path).then(function (res) {
       if (!res.ok) throw new Error('API error: ' + res.status);
       return res.json();
     });
