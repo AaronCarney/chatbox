@@ -217,6 +217,24 @@ body {
   color: #b0b0be;
 }
 
+.taxonomy-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.taxonomy-link:hover {
+  background: #3d3d5c;
+  color: #7ec87e;
+}
+
+.taxonomy-label {
+  color: #7a7a8a;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .taxonomy-sep {
   color: #555;
 }

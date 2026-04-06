@@ -121,6 +121,16 @@ var NatureApp = (function () {
     ? ''
     : 'https://chatbox-production-d06b.up.railway.app';
 
+  function handleTaxonomySearch(taxonName, rank) {
+    showLoading('results');
+    fetch(API_BASE + '/api/nature/search?q=' + encodeURIComponent(taxonName))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        renderSearchResults(data);
+      })
+      .catch(function () { showError('results', 'Search failed for ' + taxonName); });
+  }
+
   function fetchSpeciesDetail(speciesId) {
     showLoading('detail');
     fetch(API_BASE + '/api/nature/species/' + encodeURIComponent(speciesId))
@@ -233,7 +243,7 @@ var NatureApp = (function () {
     ].filter(Boolean);
     container.appendChild(el('div', { className: 'detail-header' }, headerChildren));
 
-    // Taxonomy
+    // Taxonomy — show rank labels, clickable to search
     var taxonomy = species.taxonomy;
     if (taxonomy) {
       var ranks = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'];
@@ -244,7 +254,18 @@ var NatureApp = (function () {
         if (taxEls.length > 0) {
           taxEls.push(el('span', { className: 'taxonomy-sep', textContent: '\u2192' }));
         }
-        taxEls.push(el('span', { className: 'taxonomy-rank', title: rank, textContent: val }));
+        var label = rank.charAt(0).toUpperCase() + rank.slice(1);
+        taxEls.push(el('a', {
+          className: 'taxonomy-rank taxonomy-link',
+          href: '#',
+          onClick: function (e) {
+            e.preventDefault();
+            handleTaxonomySearch(val, rank);
+          }
+        }, [
+          el('span', { className: 'taxonomy-label', textContent: label + ': ' }),
+          el('span', { textContent: val })
+        ]));
       });
       if (taxEls.length > 0) {
         container.appendChild(el('div', { className: 'taxonomy' }, taxEls));
