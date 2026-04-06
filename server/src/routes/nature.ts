@@ -35,6 +35,8 @@ interface NormalizedSpecies {
   type: 'animal' | 'plant';
   image_url: string | null;
   iucn_status: string | null;
+  observations_count: number | null;
+  rank: string | null;
 }
 
 async function inatFetch(endpoint: string): Promise<any> {
