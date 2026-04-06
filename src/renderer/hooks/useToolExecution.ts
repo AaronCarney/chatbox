@@ -16,7 +16,7 @@ interface ToolCall {
 export function useToolExecution() {
   const [state, setState] = useState<ExecutionState>('idle');
   const [currentToolCall, setCurrentToolCall] = useState<ToolCall | null>(null);
-  const pendingResolve = useRef<((result: any) => void) | null>(null);
+  const pendingResolves = useRef<Map<string, (result: any) => void>>(new Map());
 
   const startStreaming = () => {
     setState('streaming');
@@ -32,7 +32,7 @@ export function useToolExecution() {
     setCurrentToolCall(tc);
 
     const promise = new Promise((resolve) => {
-      pendingResolve.current = resolve;
+      pendingResolves.current.set(tc.id, resolve);
     });
 
     setState('tool_executing');
@@ -40,13 +40,21 @@ export function useToolExecution() {
     return promise;
   }, []);
 
-  const resolveToolCall = useCallback((result: any) => {
-    if (pendingResolve.current) {
-      pendingResolve.current(result);
+  const resolveToolCall = useCallback((result: any, toolCallId?: string) => {
+    if (toolCallId && pendingResolves.current.has(toolCallId)) {
+      pendingResolves.current.get(toolCallId)!(result);
+      pendingResolves.current.delete(toolCallId);
+    } else {
+      // Fallback: resolve the most recent pending call (backwards compat)
+      const entries = Array.from(pendingResolves.current.entries());
+      if (entries.length > 0) {
+        const [lastId, resolve] = entries[entries.length - 1];
+        resolve(result);
+        pendingResolves.current.delete(lastId);
+      }
     }
     setState('streaming_resumed');
     setCurrentToolCall(null);
-    pendingResolve.current = null;
   }, []);
 
   return {

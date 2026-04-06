@@ -54,10 +54,7 @@ export function ChatBridgeApp() {
     const broker = new PostMessageBroker([window.location.origin])
     brokerRef.current = broker
 
-    broker.on('tool.result', (data: unknown) => {
-      const d = data as { payload?: unknown } | null
-      resolveToolCall(d?.payload ?? data)
-    })
+    // tool.result is handled in the wildcard handler below (needs requestId from envelope)
 
     broker.on('task.completed', (data: unknown) => {
       const d = data as { appName?: string; type?: string; payload?: object } | null
@@ -86,10 +83,17 @@ export function ChatBridgeApp() {
       console.info('[ChatBridge] App state update received:', data)
     })
 
-    // State persistence: validate source against known app IDs, enforce size limit
+    // State persistence + tool.result with requestId routing
     const MAX_SAVE_SIZE = 512 * 1024 // 512KB per app
     broker.on('*', (envelope: unknown) => {
-      const msg = envelope as { type?: string; source?: string; payload?: unknown } | null
+      const msg = envelope as { type?: string; source?: string; payload?: unknown; requestId?: string } | null
+
+      // Route tool.result — use requestId for correct concurrent resolution
+      if (msg?.type === 'tool.result') {
+        resolveToolCall(msg.payload, msg.requestId)
+        return
+      }
+
       if (msg?.type === 'app.save' && msg.source) {
         // Validate source is a known launched app (prevents cross-app spoofing)
         if (!apps.has(msg.source)) {
@@ -174,13 +178,13 @@ export function ChatBridgeApp() {
         lastError = err instanceof Error ? err.message : String(err)
         console.warn(`[ChatBridge] Tool call attempt ${attempt + 1}/${MAX_RETRIES} failed:`, lastError)
         if (attempt < MAX_RETRIES - 1) {
-          resolveToolCall({ error: lastError })
+          resolveToolCall({ error: lastError }, toolId)
         }
       }
     }
 
     console.warn('[ChatBridge] App timeout:', targetApp.id)
-    resolveToolCall({ error: lastError })
+    resolveToolCall({ error: lastError }, toolId)
     return { error: lastError }
   }, [handleToolCall, resolveToolCall, iframeRefs])
 
@@ -222,21 +226,26 @@ export function ChatBridgeApp() {
           if (appId === 'dos') {
             setIframeHeights(prev => new Map(prev).set(appId, Math.round(window.innerHeight * 0.5)))
           }
-          // Wait for app.ready signal before sending task.launch (replaces fixed 500ms timeout)
+          // Wait for app.ready from the correct iframe before sending task.launch
           let launched = false
           const readyTimeout = setTimeout(() => {
             launchWhenReady(appId)
           }, 3000)
-          const readyHandler = () => {
-            clearTimeout(readyTimeout)
-            launchWhenReady(appId)
+          const readyHandler = (event: MessageEvent) => {
+            if (event.data?.schema !== 'CHATBRIDGE_V1' || event.data?.type !== 'app.ready') return
+            // Verify the ready signal came from this app's iframe
+            const expectedIframe = iframeRefs.current.get(appId)
+            if (expectedIframe && event.source === expectedIframe.contentWindow) {
+              clearTimeout(readyTimeout)
+              launchWhenReady(appId)
+            }
           }
-          brokerRef.current?.on('app.ready', readyHandler)
+          window.addEventListener('message', readyHandler)
 
           function launchWhenReady(id: string) {
             if (launched) return
             launched = true
-            brokerRef.current?.off('app.ready', readyHandler)
+            window.removeEventListener('message', readyHandler)
             const iframe = iframeRefs.current.get(id)
             if (iframe && brokerRef.current) {
               let savedState: unknown = undefined
