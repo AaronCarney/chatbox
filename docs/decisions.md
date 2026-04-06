@@ -27,7 +27,17 @@
 | CORS | Restrict to ALLOWED_ORIGIN | Only chatbridge.aaroncarney.me can call the API. |
 | Iframe sandbox | `sandbox="allow-scripts"` only, `credentialless`, `referrerpolicy="no-referrer"` | Never `allow-same-origin`. Null-origin iframes can't access parent DOM or storage. |
 | PostMessage origin | Broker accepts `null` origin (sandboxed) + same-origin, rejects all others | Strict sandbox produces `null` origin — must accept it. Unknown origins logged and rejected. |
+| PostMessage schema gate | All messages must have `schema: "CHATBRIDGE_V1"` — others silently dropped | Prevents cross-origin noise from browser extensions or other postMessage sources. |
 | Broker cleanup | `off()` method for handler removal on unmount | Prevents handler accumulation across React re-mounts. |
+| SQL injection | All queries use `$1/$2` pg parameterization — no string interpolation | Eliminates SQL injection across app registry, chat history, and user queries. |
+| XSS: markdown rendering | `ReactMarkdown` with `@braintree/sanitize-url` for link URLs | No raw HTML passthrough. URL sanitization prevents `javascript:` protocol injection. |
+| XSS: error responses | OAuth error strings stripped of `<>"'&` before HTML injection | Prevents reflected XSS in OAuth callback error pages. |
+| System prompt leak detection | 2+ matching fragments from system prompt keywords triggers warning | Early detection of model attempting to echo its instructions. |
+| Historical tool re-wrapping | Tool messages in history re-wrapped with fresh delimiters if absent | Prevents delimiter-stripping attacks via conversation replay. |
+| Error handling | Only `err.message` to client, never stack traces. Opaque 500 messages. | Prevents information leakage via error responses. |
+| Secrets management | All keys via `process.env.*`. Production warning if SESSION_SECRET not set. | No hardcoded secrets. Predictable HMAC pseudonyms flagged at startup. |
+| Transport security | HTTPS enforced by Vercel (frontend) and Railway (API) platforms | No custom TLS config — delegated to hosting platform. |
+| Moderation rate limit | `/api/moderate-image` uses chatLimiter (20/min) — same as `/api/chat` | Prevents abuse of paid OpenAI moderation API endpoint. |
 
 ## App Integration
 
@@ -81,3 +91,6 @@
 | Hardcoded API_BASE in Spotify app.js | If Railway URL changes, Spotify app breaks | URL stable for project lifetime. Would use env injection in production. |
 | 6 pre-existing test failures | token-estimation tests fail | Not from our changes. Would fix in production but not worth sprint time. |
 | js-dos cloud saves UI visible | "Hello, guest!" screen before game play button | js-dos v8 default behavior. Would hide with CSS in production. |
+| Mermaid SVG: no sanitizer | SVG rendered without DOMPurify (caused rendering issues) | Risk: SVG event handlers from AI-generated diagrams. Mitigated by system prompt constraints — mermaid input is LLM-generated, not user-supplied. Would re-add sanitizer with SVG-safe config in production. |
+| Spotify session_id not auth-bound | UUID query param, no cryptographic binding to Clerk user | Knowing someone's session_id grants access to their Spotify token. Mitigated by: session_id is a UUID only known to the tab that created it, not exposed in URLs. Would bind to Clerk user ID in production. |
+| OAuth state store in-memory | Railway restart loses pending/completed OAuth tokens | Acceptable for demo — users re-authenticate after restart. Would use Redis or DB-backed store in production. |

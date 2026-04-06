@@ -26,6 +26,7 @@ app.use(cors({
 app.use(express.json());
 app.use('/api', generalLimiter);
 app.use('/api/chat', chatLimiter);
+app.use('/api/moderate-image', chatLimiter);
 
 // Apply Clerk authentication middleware globally
 app.use(clerkAuth);
