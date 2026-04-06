@@ -17,6 +17,12 @@ if (hasClerkKeys) {
   // For API routes we need a 401 JSON response, not a redirect.
   requireSession = (req: any, res: any, next: any) => {
     if (!req.auth?.userId) {
+      logger.warn({
+        path: req.path,
+        hasAuthHeader: !!req.headers.authorization,
+        authHeaderPrefix: req.headers.authorization?.slice(0, 20),
+        authKeys: req.auth ? Object.keys(req.auth) : 'no req.auth',
+      }, 'auth rejected');
       res.status(401).json({ error: 'Unauthenticated' });
       return;
     }
