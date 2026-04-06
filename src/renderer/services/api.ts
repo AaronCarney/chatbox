@@ -48,7 +48,15 @@ export async function* streamChat(
   })
 
   if (!response.ok) {
-    throw new Error(`Chat API error: ${response.status} ${response.statusText}`)
+    const body = await response.text().catch(() => '')
+    console.error('[ChatBridge API]', {
+      url: `${API_BASE}/api/chat`,
+      status: response.status,
+      statusText: response.statusText,
+      body: body.slice(0, 500),
+      headers: Object.fromEntries(response.headers.entries()),
+    })
+    throw new Error(`Chat API error: ${response.status} ${response.statusText}${body ? ' — ' + body.slice(0, 200) : ''}`)
   }
 
   const reader = response.body?.getReader()
@@ -122,7 +130,14 @@ export async function fetchApps(authToken?: string | null): Promise<any[]> {
   })
 
   if (!response.ok) {
-    throw new Error(`Apps API error: ${response.status} ${response.statusText}`)
+    const body = await response.text().catch(() => '')
+    console.error('[ChatBridge API]', {
+      url: `${API_BASE}/api/apps`,
+      status: response.status,
+      statusText: response.statusText,
+      body: body.slice(0, 500),
+    })
+    throw new Error(`Apps API error: ${response.status} ${response.statusText}${body ? ' — ' + body.slice(0, 200) : ''}`)
   }
 
   return response.json()

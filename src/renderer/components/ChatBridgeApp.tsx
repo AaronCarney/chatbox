@@ -470,15 +470,6 @@ export function ChatBridgeApp() {
             </div>
           ) : null}
 
-          {completedActivities.map((activity, i) => (
-            <AppCard
-              key={i}
-              appName={activity.appName}
-              type={activity.type}
-              payload={activity.payload}
-            />
-          ))}
-
           <div ref={messagesEndRef} />
         </div>
 
@@ -536,7 +527,8 @@ export function ChatBridgeApp() {
         borderLeft: '2px solid #2d2d3d',
         backgroundColor: '#1a1a2e',
         position: 'relative',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         height: '100%',
         minWidth: 0,
         ...(hasActiveApp ? {} : { display: 'flex', alignItems: 'center', justifyContent: 'center' }),
@@ -552,9 +544,7 @@ export function ChatBridgeApp() {
                   iframeUrl={app.iframeUrl}
                   isActive={app.status === 'active'}
                   height={iframeHeights.get(app.id)}
-                  sandbox={app.id === 'spotify'
-                    ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox'
-                    : 'allow-scripts'}
+                  sandbox="allow-scripts"
                   onRef={(el) => {
                     if (el) iframeRefs.current.set(app.id, el)
                     else iframeRefs.current.delete(app.id)

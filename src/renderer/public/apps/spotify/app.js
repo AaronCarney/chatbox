@@ -39,13 +39,8 @@
       card.className = 'track-card';
       card.style.cursor = 'pointer';
 
-      var spotifyUrl = track.spotify_url || (track.external_urls && track.external_urls.spotify);
-      if (spotifyUrl) {
-        card.title = 'Open in Spotify';
-        card.addEventListener('click', function () {
-          window.open(spotifyUrl, '_blank', 'noopener');
-        });
-      }
+      // No external links — all content stays within the platform (COPPA)
+      card.title = track.name;
 
       var img = document.createElement('img');
       var albumImages = track.album && track.album.images;

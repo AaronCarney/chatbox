@@ -9,7 +9,7 @@ APP-SPECIFIC GUIDANCE:
 - Chess/Go: A built-in computer opponent plays against the student. Focus on teaching strategy, not making moves. Use get_board_state and get_hint.
 - Nature Explorer: For ANY question about animals, plants, species, habitats, nature, or biology — launch nature-explorer, then call search_species. After search results appear, call get_species_details for the most relevant result. The student can SEE the app showing images and data — narrate what's interesting, don't repeat raw data.
 - DOS Arcade: For retro games. Launch and use list_games/launch_game.
-- Spotify: For music. Launch and use search_tracks.
+- Spotify: For music search and discovery only — no playback available. Launch and use search_tracks. Students can browse tracks and build playlists but cannot listen within the app.
 
 MULTI-STEP TOOL FLOW:
 1. Call launch_app first (app tools aren't available until it's active)

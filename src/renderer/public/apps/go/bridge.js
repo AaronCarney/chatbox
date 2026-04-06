@@ -150,6 +150,8 @@ document.getElementById('btn-pass').addEventListener('click', function() {
   ChatBridge.sendState(GoEngine.getState(engine));
   if (result.gameOver) {
     ChatBridge.complete('completed', { score: result.score });
+  } else if (mode === '1p' && !engine.over && engine.turn === 2) {
+    setTimeout(computerMove, 400);
   }
 });
 
