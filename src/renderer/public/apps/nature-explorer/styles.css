@@ -96,9 +96,15 @@ body {
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.species-card:hover {
+.species-card:hover,
+.species-card:focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+}
+
+.species-card:focus-visible {
+  outline: 3px solid #2D5016;
+  outline-offset: 2px;
 }
 
 .species-card-img {
@@ -141,14 +147,14 @@ body {
 }
 
 .badge-lc { background: #4CAF50; }
-.badge-nt { background: #FFC107; color: #333; }
+.badge-nt { background: #F9A825; color: #000; }
 .badge-vu { background: #FF9800; }
 .badge-en { background: #F44336; }
 .badge-cr { background: #8B0000; }
 .badge-ew { background: #333; }
 .badge-ex { background: #000; }
 .badge-dd { background: #9E9E9E; }
-.badge-ne { background: #BDBDBD; color: #333; }
+.badge-ne { background: #9E9E9E; color: #fff; }
 
 /* Detail View */
 .detail-view {

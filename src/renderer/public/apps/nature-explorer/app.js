@@ -113,7 +113,12 @@ var NatureApp = (function () {
     showLoading('detail');
     fetch('/api/nature/species/' + encodeURIComponent(speciesId))
       .then(function (res) { return res.json(); })
-      .then(function (detail) { renderSpeciesDetail(detail); })
+      .then(function (detail) {
+        renderSpeciesDetail(detail);
+        if (typeof ChatBridge !== 'undefined') {
+          ChatBridge.sendState({ view: 'detail', species: detail.common_name || detail.scientific_name });
+        }
+      })
       .catch(function () { showError('detail', 'Failed to load species details.'); });
   }
 
@@ -121,7 +126,15 @@ var NatureApp = (function () {
   function makeSpeciesCard(species, onClick) {
     var imgUrl = species.image_url || species.imageUrl ||
                  (species.images && species.images[0] && species.images[0].url);
-    var card = el('div', { className: 'species-card', onClick: onClick || function () {} }, [
+    var handler = onClick || function () {};
+    var card = el('div', {
+      className: 'species-card',
+      tabindex: '0',
+      role: 'button',
+      'aria-label': (species.common_name || species.commonName || 'Species') + ' — click to view details',
+      onClick: handler,
+      onKeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } }
+    }, [
       makeImgWithFallback(imgUrl, species.common_name || species.commonName, 'species-card-img'),
       el('div', { className: 'species-card-body' }, [
         el('div', { className: 'species-card-name',
@@ -185,8 +198,8 @@ var NatureApp = (function () {
       makeImgWithFallback(imgUrl, species.common_name || species.commonName, 'detail-hero')
     ]);
 
-    var attr = species.image_attribution || species.imageAttribution ||
-               (species.images && species.images[0] && (species.images[0].credit || species.images[0].attribution));
+    var attr = (species.images && species.images[0] && (species.images[0].credit || species.images[0].attribution)) ||
+               species.image_attribution || species.imageAttribution;
     if (attr) {
       heroWrap.appendChild(el('div', { className: 'photo-attr',
         textContent: 'Photo by ' + attr + ' on iNaturalist' }));
@@ -275,7 +288,7 @@ var NatureApp = (function () {
         }}, [
           makeImgWithFallback(simImg, s.common_name || s.commonName, ''),
           el('div', { className: 'similar-card-name',
-            textContent: s.common_name || s.commonName || '' })
+            textContent: s.common_name || s.commonName || s.name || '' })
         ]);
         simGrid.appendChild(simCard);
       });

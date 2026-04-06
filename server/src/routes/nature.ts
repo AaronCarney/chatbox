@@ -108,7 +108,8 @@ natureRouter.get('/nature/search', async (req: Request, res: Response) => {
         for (const p of perenual.data.slice(0, 6)) {
           if (results.some((r: NormalizedSpecies) => r.scientific_name.toLowerCase() === (p.scientific_name || '').toLowerCase())) continue;
           const name = p.common_name || p.scientific_name || '';
-          if (isBlockedContent(name)) continue;
+          const sciName = p.scientific_name || '';
+          if (isBlockedContent(name) || isBlockedContent(sciName)) continue;
           results.push({
             id: `perenual:${p.id}`,
             common_name: name,
@@ -124,8 +125,8 @@ natureRouter.get('/nature/search', async (req: Request, res: Response) => {
     res.json({ results, total: results.length });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ err: msg }, 'nature search failed');
-    res.status(500).json({ error: msg });
+    logger.error({ err: msg }, 'nature api error');
+    res.status(500).json({ error: 'Failed to fetch nature data' });
   }
 });
 
@@ -134,8 +135,8 @@ natureRouter.get('/nature/species/:id', async (req: Request, res: Response) => {
   try {
     const rawId = req.params.id as string;
     const [source, numericId] = rawId.split(':');
-    if (!numericId) {
-      res.status(400).json({ error: 'Invalid id format. Expected "inat:{id}"' });
+    if (!numericId || !/^\d+$/.test(numericId)) {
+      res.status(400).json({ error: 'Invalid id format. Expected "inat:{numeric_id}"' });
       return;
     }
 
@@ -147,6 +148,13 @@ natureRouter.get('/nature/species/:id', async (req: Request, res: Response) => {
     const data = await inatFetch(`/taxa/${numericId}`);
     const taxon = data.results?.[0];
     if (!taxon) {
+      res.status(404).json({ error: 'Species not found' });
+      return;
+    }
+
+    // Blocklist check on detail endpoint
+    const name = taxon.preferred_common_name || taxon.name || '';
+    if (isBlockedContent(name) || isBlockedContent(taxon.name || '')) {
       res.status(404).json({ error: 'Species not found' });
       return;
     }
@@ -164,7 +172,7 @@ natureRouter.get('/nature/species/:id', async (req: Request, res: Response) => {
 
     res.json({
       id: rawId,
-      common_name: taxon.preferred_common_name || taxon.name,
+      common_name: name,
       scientific_name: taxon.name,
       taxonomy,
       description: taxon.wikipedia_summary || null,
@@ -208,11 +216,11 @@ natureRouter.get('/nature/habitat', async (req: Request, res: Response) => {
       if (normalized) results.push(normalized);
     }
 
-    res.json({ results, total: results.length });
+    res.json({ habitat: habitat as string, results, total: results.length });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err: msg }, 'nature habitat browse failed');
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'Failed to fetch nature data' });
   }
 });
 
@@ -237,7 +245,14 @@ natureRouter.get('/nature/random', async (req: Request, res: Response) => {
     const taxonData = await inatFetch(`/taxa/${obs.taxon.id}`);
     const taxon = taxonData.results?.[0];
     if (!taxon) {
-      res.status(404).json({ error: 'Species detail not found' });
+      res.status(404).json({ error: 'Species not found' });
+      return;
+    }
+
+    // Blocklist check on random species
+    const name = taxon.preferred_common_name || taxon.name || '';
+    if (isBlockedContent(name) || isBlockedContent(taxon.name || '')) {
+      res.status(404).json({ error: 'Species not found' });
       return;
     }
 
@@ -254,7 +269,7 @@ natureRouter.get('/nature/random', async (req: Request, res: Response) => {
 
     res.json({
       id: `inat:${taxon.id}`,
-      common_name: taxon.preferred_common_name || taxon.name,
+      common_name: name,
       scientific_name: taxon.name,
       taxonomy,
       description: taxon.wikipedia_summary || null,
@@ -266,7 +281,7 @@ natureRouter.get('/nature/random', async (req: Request, res: Response) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err: msg }, 'nature random failed');
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'Failed to fetch nature data' });
   }
 });
 

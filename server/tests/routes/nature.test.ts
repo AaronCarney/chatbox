@@ -326,5 +326,74 @@ describe('Nature API routes', () => {
 
       expect(res.status).toBe(404);
     });
+
+    it('filters blocked content from random species', async () => {
+      const blockedTaxonDetail = {
+        ...MOCK_TAXON_DETAIL,
+        preferred_common_name: 'roadkill observation',
+      };
+      mockFetch.mockResolvedValueOnce(makeInatObsResponse([{ taxon: { id: 99999 } }]));
+      mockFetch.mockResolvedValueOnce(makeInatTaxaResponse([blockedTaxonDetail]));
+
+      const res = await request(app).get('/api/nature/random');
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('GET /api/nature/species/:id — content safety', () => {
+    it('rejects non-numeric IDs', async () => {
+      const res = await request(app).get('/api/nature/species/inat:abc');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects path traversal attempts', async () => {
+      const res = await request(app).get('/api/nature/species/inat:../../users');
+      expect(res.status).toBe(400);
+    });
+
+    it('filters blocked species from detail view', async () => {
+      const blockedDetail = {
+        ...MOCK_TAXON_DETAIL,
+        preferred_common_name: 'dead animal specimen',
+      };
+      mockFetch.mockResolvedValueOnce(makeInatTaxaResponse([blockedDetail]));
+
+      const res = await request(app).get('/api/nature/species/inat:99999');
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('GET /api/nature/habitat — response shape', () => {
+    it('echoes habitat name in response', async () => {
+      mockFetch.mockResolvedValueOnce(makeInatObsResponse([{ taxon: MOCK_TAXON }]));
+
+      const res = await request(app).get('/api/nature/habitat?habitat=rainforest');
+
+      expect(res.status).toBe(200);
+      expect(res.body.habitat).toBe('rainforest');
+    });
+
+    it('clamps limit above 30 to 30', async () => {
+      mockFetch.mockResolvedValueOnce(makeInatObsResponse([{ taxon: MOCK_TAXON }]));
+
+      await request(app).get('/api/nature/habitat?habitat=ocean&limit=999');
+
+      const fetchUrl = mockFetch.mock.calls[0][0];
+      expect(fetchUrl).toContain('per_page=30');
+    });
+  });
+
+  describe('error response safety', () => {
+    it('does not leak internal error details to client', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('DNS resolution failed for api.inaturalist.org'));
+
+      const res = await request(app).get('/api/nature/search?q=butterfly');
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Failed to fetch nature data');
+      expect(res.body.error).not.toContain('inaturalist');
+    });
   });
 });

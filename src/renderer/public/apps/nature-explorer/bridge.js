@@ -40,8 +40,13 @@
   }
 
   function handleGetSpeciesDetails(args, requestId) {
-    NatureApp.showLoading('detail');
     var speciesId = args.species_id || args.speciesId || args.id;
+    if (!speciesId) {
+      NatureApp.showError('detail', 'No species selected.');
+      ChatBridge.respondToTool(requestId, { error: 'Missing species_id' });
+      return;
+    }
+    NatureApp.showLoading('detail');
     apiGet('/api/nature/species/' + encodeURIComponent(speciesId))
       .then(function (data) {
         NatureApp.renderSpeciesDetail(data);
@@ -76,7 +81,7 @@
 
   function handleGetRandomSpecies(args, requestId) {
     NatureApp.showLoading('detail');
-    var query = buildQuery({ type: args.type });
+    var query = buildQuery({ type: args.type, difficulty: args.difficulty, region: args.region });
     apiGet('/api/nature/random' + query)
       .then(function (data) {
         NatureApp.renderSpeciesDetail(data);
@@ -97,6 +102,14 @@
       ChatBridge.respondToTool(requestId, { error: 'Need at least 2 species IDs' });
       return;
     }
+    // Filter to inat: IDs only (perenual detail endpoint not supported)
+    var supported = ids.filter(function (id) { return id.indexOf('inat:') === 0; });
+    if (supported.length < 2) {
+      NatureApp.showError('comparison', 'Plant comparisons are not yet supported. Try comparing animals!');
+      ChatBridge.respondToTool(requestId, { error: 'Need at least 2 iNaturalist species IDs for comparison' });
+      return;
+    }
+    ids = supported;
 
     var fetches = ids.map(function (id) {
       return apiGet('/api/nature/species/' + encodeURIComponent(id));
