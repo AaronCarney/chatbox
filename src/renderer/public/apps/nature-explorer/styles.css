@@ -164,8 +164,8 @@ body {
 
 .detail-hero {
   width: 100%;
-  max-height: 280px;
-  object-fit: cover;
+  max-height: 400px;
+  object-fit: contain;
   border-radius: 12px;
   display: block;
   background: #2a2a45;
@@ -463,6 +463,71 @@ body {
 .no-results-icon {
   font-size: 36px;
   margin-bottom: 8px;
+}
+
+/* Photo gallery strip */
+.photo-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0;
+  margin-bottom: 12px;
+}
+
+.photo-strip img {
+  width: 80px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.photo-strip img:hover {
+  border-color: #7ec87e;
+  opacity: 0.9;
+}
+
+.photo-strip img.active {
+  border-color: #7ec87e;
+}
+
+/* External links */
+.external-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.ext-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #2d2d4a;
+  color: #7ec87e;
+  text-decoration: none;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.ext-link:hover {
+  background: #3d3d5c;
+}
+
+/* Observation count */
+.obs-count {
+  font-size: 13px;
+  color: #9090a0;
+  margin-bottom: 12px;
+}
+
+.obs-count strong {
+  color: #c4a87a;
 }
 
 /* Related results in detail view */

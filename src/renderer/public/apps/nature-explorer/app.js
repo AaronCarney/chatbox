@@ -218,20 +218,40 @@ var NatureApp = (function () {
 
     container.appendChild(makeBackBtn(previousView !== 'detail' ? previousView : 'welcome'));
 
-    // Hero image
+    // Hero image + photo gallery
+    var images = species.images || [];
     var imgUrl = species.image_url || species.imageUrl ||
-                 (species.images && species.images[0] && species.images[0].url);
-    var heroWrap = el('div', { className: 'detail-hero-wrap' }, [
-      makeImgWithFallback(imgUrl, species.common_name || species.commonName, 'detail-hero')
-    ]);
+                 (images[0] && images[0].url);
+    var heroImg = makeImgWithFallback(imgUrl, species.common_name || species.commonName, 'detail-hero');
+    var heroWrap = el('div', { className: 'detail-hero-wrap' }, [heroImg]);
 
-    var attr = (species.images && species.images[0] && (species.images[0].credit || species.images[0].attribution)) ||
+    var attr = (images[0] && (images[0].credit || images[0].attribution)) ||
                species.image_attribution || species.imageAttribution;
     if (attr) {
       heroWrap.appendChild(el('div', { className: 'photo-attr',
         textContent: 'Photo by ' + attr + ' on iNaturalist' }));
     }
     container.appendChild(heroWrap);
+
+    // Photo strip — click to swap hero image
+    if (images.length > 1) {
+      var strip = el('div', { className: 'photo-strip' });
+      images.forEach(function (img, idx) {
+        if (!img.url) return;
+        var thumb = makeImgWithFallback(img.url, 'Photo ' + (idx + 1), idx === 0 ? 'active' : '');
+        thumb.addEventListener('click', function () {
+          heroImg.src = img.url;
+          strip.querySelectorAll('img').forEach(function (t) { t.classList.remove('active'); });
+          thumb.classList.add('active');
+          // Update attribution
+          var attrEl = heroWrap.querySelector('.photo-attr');
+          var credit = img.credit || img.attribution || '';
+          if (attrEl && credit) attrEl.textContent = 'Photo by ' + credit + ' on iNaturalist';
+        });
+        strip.appendChild(thumb);
+      });
+      container.appendChild(strip);
+    }
 
     // Header
     var headerChildren = [
@@ -242,6 +262,30 @@ var NatureApp = (function () {
       makeBadge(species.iucn_status || species.conservation_status || species.conservationStatus)
     ].filter(Boolean);
     container.appendChild(el('div', { className: 'detail-header' }, headerChildren));
+
+    // Observation count
+    if (species.observations_count) {
+      container.appendChild(el('div', { className: 'obs-count' }, [
+        el('strong', { textContent: species.observations_count.toLocaleString() }),
+        document.createTextNode(' observations on iNaturalist')
+      ]));
+    }
+
+    // External links
+    var links = [];
+    if (species.wikipedia_url) {
+      links.push(el('a', { className: 'ext-link', href: species.wikipedia_url, target: '_blank', rel: 'noopener' }, [
+        document.createTextNode('📖 Wikipedia')
+      ]));
+    }
+    if (species.inaturalist_url) {
+      links.push(el('a', { className: 'ext-link', href: species.inaturalist_url, target: '_blank', rel: 'noopener' }, [
+        document.createTextNode('🔬 iNaturalist')
+      ]));
+    }
+    if (links.length > 0) {
+      container.appendChild(el('div', { className: 'external-links' }, links));
+    }
 
     // Taxonomy — show rank labels, clickable to search
     var taxonomy = species.taxonomy;

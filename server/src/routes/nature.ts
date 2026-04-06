@@ -190,6 +190,9 @@ natureRouter.get('/nature/species/:id', async (req: Request, res: Response) => {
       images,
       iucn_status: taxon.conservation_status?.status || null,
       ancestors: (taxon.ancestors || []).map((a: any) => ({ rank: a.rank, name: a.name })),
+      wikipedia_url: taxon.wikipedia_url || null,
+      inaturalist_url: `https://www.inaturalist.org/taxa/${numericId}`,
+      observations_count: taxon.observations_count || null,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
