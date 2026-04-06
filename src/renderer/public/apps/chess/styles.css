@@ -90,7 +90,7 @@ body {
   color: #ff4444 !important;
 }
 
-/* Board fills available space */
+/* Board fills available space — container queries keep it adaptive to panel */
 #board-container {
   flex: 1;
   display: flex;
@@ -98,13 +98,13 @@ body {
   justify-content: center;
   min-height: 0;
   width: 100%;
+  container-type: size;
 }
 
 .board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  width: min(calc(100vh - 120px), calc(100vw - 16px));
-  max-width: 90%;
+  width: min(100cqh, 90cqw);
   aspect-ratio: 1;
   border-radius: 4px;
   overflow: hidden;
