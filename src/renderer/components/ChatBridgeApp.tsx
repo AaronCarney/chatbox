@@ -19,7 +19,7 @@ interface AvailableApp {
 }
 
 export function ChatBridgeApp() {
-  const { getToken } = useAuth()
+  const { getToken, isLoaded, isSignedIn } = useAuth()
   const { messages, isStreaming, streamingText, sendMessage, addToolResult, continueAfterToolCalls } = useChat()
   const { apps, iframeRefs, launchApp, getActiveApp } = useIframeApps()
   const { state: toolState, currentToolCall, handleToolCall, resolveToolCall } = useToolExecution()
@@ -35,7 +35,7 @@ export function ChatBridgeApp() {
   const sessionIdRef = useRef(crypto.randomUUID())
 
   useEffect(() => {
-    fetchApps().then(setAvailableApps).catch(console.error)
+    fetchApps(getToken).then(setAvailableApps).catch(console.error)
 
     const broker = new PostMessageBroker([window.location.origin])
     brokerRef.current = broker
@@ -170,12 +170,15 @@ export function ChatBridgeApp() {
 
     let result: any = null
     try {
-    const token = await getToken().catch(() => null)
+    if (!isLoaded || !isSignedIn) {
+      console.error('[ChatBridge] Auth not ready — isLoaded:', isLoaded, 'isSignedIn:', isSignedIn)
+      return
+    }
     const activeApp = getActiveApp()
 
     result = await sendMessage(trimmed, {
       activeAppId: activeApp?.id ?? null,
-      authToken: token,
+      getToken,
     })
     if (!result || result.type !== 'tool_calls') return
 
@@ -308,7 +311,7 @@ export function ChatBridgeApp() {
     const MAX_CHAIN_DEPTH = 5
     let chainResult = await continueAfterToolCalls({
       activeAppId: activeApp?.id ?? justLaunchedAppId ?? null,
-      authToken: token,
+      getToken,
     })
 
     for (let depth = 0; depth < MAX_CHAIN_DEPTH && chainResult?.type === 'tool_calls'; depth++) {
@@ -328,7 +331,7 @@ export function ChatBridgeApp() {
           addToolResult(chainId, JSON.stringify({ error: 'No active app for: ' + chainName }))
         }
       }
-      chainResult = await continueAfterToolCalls({ activeAppId: chainedActiveApp?.id ?? null, authToken: token })
+      chainResult = await continueAfterToolCalls({ activeAppId: chainedActiveApp?.id ?? null, getToken })
     }
     } catch (err) {
       console.error('[ChatBridge] handleSend error:', err)
@@ -340,7 +343,7 @@ export function ChatBridgeApp() {
     } finally {
       isSendingRef.current = false
     }
-  }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp, continueAfterToolCalls])
+  }, [input, isStreaming, isLoaded, isSignedIn, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp, continueAfterToolCalls])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

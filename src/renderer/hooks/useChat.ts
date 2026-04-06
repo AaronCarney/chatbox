@@ -16,7 +16,7 @@ interface ToolCallResult {
 interface StreamOpts {
   tools?: any[]
   activeAppId?: string | null
-  authToken?: string | null
+  getToken?: () => Promise<string | null>
 }
 
 /** Shared logic: stream from server, collect text + tool calls */
