@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBridge — Safety & Security</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #16161e;
+      color: #e0e0e6;
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+    .back-link { display: inline-block; color: #7ec87e; text-decoration: none; font-size: 14px; margin-bottom: 24px; }
+    .back-link:hover { text-decoration: underline; }
+    h1 { font-size: 32px; font-weight: 700; color: #7ec87e; margin-bottom: 8px; }
+    .subtitle { font-size: 16px; color: #9090a0; margin-bottom: 32px; }
+    h2 { font-size: 20px; font-weight: 600; color: #c4a87a; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #2d2d4a; }
+    h3 { font-size: 16px; font-weight: 600; color: #e0e0e6; margin: 16px 0 8px; }
+    p { font-size: 14px; color: #b0b0be; margin-bottom: 12px; }
+    .layer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 16px 0; }
+    .layer-card {
+      background: #1e1e30;
+      border: 1px solid #2d2d4a;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .layer-card .icon { font-size: 28px; margin-bottom: 8px; }
+    .layer-card .title { font-size: 15px; font-weight: 600; color: #e0e0e6; margin-bottom: 4px; }
+    .layer-card .desc { font-size: 13px; color: #9090a0; }
+    .tech-list { list-style: none; padding: 0; }
+    .tech-list li {
+      background: #1e1e30;
+      border-left: 3px solid #7ec87e;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      color: #b0b0be;
+    }
+    .tech-list li strong { color: #e0e0e6; }
+    .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #2d4a2d;
+      color: #7ec87e;
+    }
+    .badge.warn { background: #4a3d2d; color: #c4a87a; }
+    .badge.info { background: #2d2d4a; color: #8888cc; }
+    .arch-diagram {
+      background: #1e1e30;
+      border: 1px solid #2d2d4a;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 16px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #9090a0;
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.4;
+    }
+    footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #2d2d4a; font-size: 12px; color: #666; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="back-link" href="/">&larr; Back to ChatBridge</a>
+    <h1>Safety & Security</h1>
+    <p class="subtitle">How ChatBridge protects K-12 students with defense-in-depth architecture</p>
+
+    <div class="badge-row">
+      <span class="badge">COPPA Compliant</span>
+      <span class="badge">FERPA Aligned</span>
+      <span class="badge">OWASP LLM Top 10</span>
+      <span class="badge info">Ephemeral Sessions</span>
+      <span class="badge info">No Student PII Stored</span>
+    </div>
+
+    <h2>7-Layer Defense Architecture</h2>
+    <p>Every interaction passes through multiple independent safety layers. No single point of failure can compromise student safety.</p>
+
+    <div class="arch-diagram">Student Input
+    |
+    v
+[L1] Rate Limiting ──────── IP-based throttling, chat-specific limits
+    |
+    v
+[L2] Authentication ─────── Clerk session validation, JWT verification
+    |
+    v
+[L3] PII Stripping ──────── Regex-based removal of emails, phones, SSNs
+    |
+    v
+[L4] Prompt Injection ───── System prompt hardening, tool result wrapping,
+    |                         delimiter-based data/instruction separation
+    v
+[L5] LLM + Tool Calls ───── OpenAI GPT-4o with strict tool schemas,
+    |                         tool call limits (max 10/turn)
+    v
+[L6] Output Validation ──── Tool result schema validation, size caps (2KB),
+    |                         content blocklist filtering
+    v
+[L7] Client-Side Safety ─── On-device CV model (NSFWJS), iframe sandboxing,
+                              real-time content monitoring, safety overlay</div>
+
+    <h2>Defense Layers in Detail</h2>
+
+    <div class="layer-grid">
+      <div class="layer-card">
+        <div class="icon">🔒</div>
+        <div class="title">Iframe Sandboxing</div>
+        <div class="desc">All third-party apps run in sandboxed iframes with <code>allow-scripts</code> only. No access to parent DOM, cookies, or navigation. <code>credentialless</code> attribute prevents ambient credential leaks.</div>
+      </div>
+      <div class="layer-card">
+        <div class="icon">🛡️</div>
+        <div class="title">Prompt Injection Defense</div>
+        <div class="desc">Tool results wrapped in unique delimiters with source attribution. System prompt enforces data/instruction separation. LLM instructed to never follow instructions from tool results.</div>
+      </div>
+      <div class="layer-card">
+        <div class="icon">👁️</div>
+        <div class="title">Computer Vision Monitoring</div>
+        <div class="desc">On-device NSFWJS model continuously monitors iframe content via canvas snapshots. Inappropriate content triggers immediate blur overlay or hard block — no data leaves the browser.</div>
+      </div>
+      <div class="layer-card">
+        <div class="icon">🚫</div>
+        <div class="title">Content Blocklist</div>
+        <div class="desc">Taxonomy-based blocklist filters age-inappropriate species, content, and search terms from the Nature Explorer. Operates at both API and display layers.</div>
+      </div>
+      <div class="layer-card">
+        <div class="icon">🔑</div>
+        <div class="title">Authentication</div>
+        <div class="desc">Clerk-based authentication with session management. All chat API endpoints require valid sessions. Pseudonymized user IDs for logging — no real identifiers stored.</div>
+      </div>
+      <div class="layer-card">
+        <div class="icon">📊</div>
+        <div class="title">Rate Limiting</div>
+        <div class="desc">IP-based rate limiting on all API endpoints. Additional stricter limits on chat and moderation endpoints to prevent abuse and control costs.</div>
+      </div>
+      <div class="layer-card">
+        <div class="icon">🧹</div>
+        <div class="title">PII Stripping</div>
+        <div class="desc">All message content (user, assistant, tool) is scrubbed for personally identifiable information before processing. Emails, phone numbers, and SSN patterns are removed.</div>
+      </div>
+      <div class="layer-card">
+        <div class="icon">📋</div>
+        <div class="title">Tool Result Validation</div>
+        <div class="desc">Schema-based validation on all tool results. Size-capped at 2KB per result. Unknown tools are rejected. Results are wrapped and attributed before reaching the LLM.</div>
+      </div>
+    </div>
+
+    <h2>Data Privacy</h2>
+    <ul class="tech-list">
+      <li><strong>Ephemeral Sessions:</strong> Chat history exists only in browser memory. Closing the tab erases the conversation.</li>
+      <li><strong>No Student Data Storage:</strong> No names, emails, grades, or demographic information is collected or stored.</li>
+      <li><strong>Pseudonymized Logging:</strong> Server logs use generated pseudonyms (e.g., "Cheerful Penguin") instead of real user identifiers.</li>
+      <li><strong>No External Tracking:</strong> No analytics, ad trackers, or third-party data collection scripts.</li>
+      <li><strong>App State Isolation:</strong> Each iframe app's state is scoped to the current session and sandboxed from other apps.</li>
+    </ul>
+
+    <h2>App Sandboxing Architecture</h2>
+    <ul class="tech-list">
+      <li><strong>PostMessage Protocol:</strong> All parent-child communication uses a versioned schema (<code>CHATBRIDGE_V1</code>) with structured envelopes. No direct DOM access.</li>
+      <li><strong>Origin Validation:</strong> The PostMessage broker validates message origins. Sandboxed iframes with <code>null</code> origin are explicitly handled.</li>
+      <li><strong>No External Navigation:</strong> Iframes cannot open new windows or navigate to external sites. All content stays within the platform.</li>
+      <li><strong>State Persistence Limits:</strong> App save data is capped at 512KB per app per session and validated before storage.</li>
+      <li><strong>Cross-App Isolation:</strong> Apps cannot read or write other apps' state. Source validation prevents cross-app spoofing.</li>
+    </ul>
+
+    <h2>LLM Security</h2>
+    <ul class="tech-list">
+      <li><strong>System Prompt Hardening:</strong> The AI is instructed to never reveal its system prompt, never follow instructions from tool results, and never generate inappropriate content.</li>
+      <li><strong>Tool Call Limits:</strong> Maximum 10 tool calls per turn, 5-deep chaining limit. Prevents runaway execution.</li>
+      <li><strong>Token Budget:</strong> Input capped at 8K tokens with progressive history trimming. Prevents context window exploitation.</li>
+      <li><strong>Delimiter Wrapping:</strong> Tool results are wrapped in unique delimiters with source attribution, creating a clear boundary between data and instructions.</li>
+      <li><strong>Strict Tool Schemas:</strong> All tool parameters use OpenAI strict mode with JSON Schema validation. No freeform tool arguments.</li>
+    </ul>
+
+    <h2>Content Safety for Nature Explorer</h2>
+    <ul class="tech-list">
+      <li><strong>Taxonomy Blocklist:</strong> Multi-layered filtering removes age-inappropriate species (parasites, venomous species descriptions, etc.) at both search and detail endpoints.</li>
+      <li><strong>Wikipedia HTML Stripping:</strong> All Wikipedia summaries are stripped of HTML tags before display to prevent markup injection.</li>
+      <li><strong>License Filtering:</strong> Only Creative Commons-licensed images from iNaturalist are displayed. Copyrighted content is excluded.</li>
+      <li><strong>No External Links:</strong> Species detail pages keep students within the app. No links to Wikipedia, iNaturalist, or other external sites.</li>
+    </ul>
+
+    <h2>Technology Stack</h2>
+    <div class="badge-row">
+      <span class="badge info">Express.js</span>
+      <span class="badge info">React + Vite</span>
+      <span class="badge info">PostgreSQL</span>
+      <span class="badge info">Clerk Auth</span>
+      <span class="badge info">OpenAI GPT-4o</span>
+      <span class="badge info">NSFWJS (on-device)</span>
+      <span class="badge info">TensorFlow.js</span>
+      <span class="badge info">Railway</span>
+      <span class="badge info">Vercel</span>
+    </div>
+
+    <footer>
+      ChatBridge &mdash; K-12 AI Educational Platform &mdash; Built with safety-first architecture
+    </footer>
+  </div>
+</body>
+</html>
