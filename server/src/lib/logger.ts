@@ -16,7 +16,7 @@ export function requestLogger() {
     res.on('finish', () => {
       const duration = Date.now() - start;
       const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
-      logger[level]({ method, url, status: res.statusCode, duration: `${duration}ms`, userId: req.auth?.userId }, 'request');
+      logger[level]({ method, url, status: res.statusCode, duration: `${duration}ms`, userId: (req as any).clerkAuth?.userId }, 'request');
     });
 
     next();

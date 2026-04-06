@@ -5,7 +5,7 @@ export const chatLimiter = rateLimit({
   windowMs: 60000,
   max: 20,
   keyGenerator: (req) => {
-    return (req as any).auth?.userId || req.ip || 'unknown';
+    return (req as any).clerkAuth?.userId || req.ip || 'unknown';
   },
   validate: { keyGeneratorIpFallback: false },
   standardHeaders: true,
