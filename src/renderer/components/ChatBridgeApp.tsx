@@ -43,6 +43,7 @@ export function ChatBridgeApp() {
   const [iframeHeights, setIframeHeights] = useState<Map<string, number>>(new Map())
   const [safetyOverlay, setSafetyOverlay] = useState<{ visible: boolean; hardBlock: boolean }>({ visible: false, hardBlock: false })
 
+  const isSendingRef = useRef(false)
   const brokerRef = useRef<PostMessageBroker | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionIdRef = useRef(crypto.randomUUID())
@@ -185,7 +186,8 @@ export function ChatBridgeApp() {
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim()
-    if (!trimmed || isStreaming) return
+    if (!trimmed || isStreaming || isSendingRef.current) return
+    isSendingRef.current = true
     setInput('')
 
     try {
@@ -221,8 +223,8 @@ export function ChatBridgeApp() {
             setIframeHeights(prev => new Map(prev).set(appId, Math.round(window.innerHeight * 0.5)))
           }
           // Wait for app.ready signal before sending task.launch (replaces fixed 500ms timeout)
+          let launched = false
           const readyTimeout = setTimeout(() => {
-            // Fallback: if app doesn't send ready in 3s, launch anyway
             launchWhenReady(appId)
           }, 3000)
           const readyHandler = () => {
@@ -232,6 +234,8 @@ export function ChatBridgeApp() {
           brokerRef.current?.on('app.ready', readyHandler)
 
           function launchWhenReady(id: string) {
+            if (launched) return
+            launched = true
             brokerRef.current?.off('app.ready', readyHandler)
             const iframe = iframeRefs.current.get(id)
             if (iframe && brokerRef.current) {
@@ -283,8 +287,8 @@ export function ChatBridgeApp() {
 
         case 'search_tracks':
         case 'get_recommendations': {
-          const spotifyTarget = activeApp
-            || (justLaunchedAppId ? { id: justLaunchedAppId } : null)
+          const spotifyTarget = (justLaunchedAppId ? { id: justLaunchedAppId } : null)
+            || activeApp
           if (spotifyTarget) {
             if (justLaunchedAppId && !iframeRefs.current.get(spotifyTarget.id)) {
               await new Promise(r => setTimeout(r, 1500))
@@ -317,9 +321,9 @@ export function ChatBridgeApp() {
         }
 
         default: {
-          // Re-check active app — may have been launched earlier in this batch
-          const targetApp = getActiveApp()
-            || (justLaunchedAppId ? { id: justLaunchedAppId } : null)
+          // Prefer just-launched app (stale getActiveApp may still point to previous app)
+          const targetApp = (justLaunchedAppId ? { id: justLaunchedAppId } : null)
+            || getActiveApp()
           if (targetApp) {
             // Wait briefly for iframe to be ready if just launched
             if (justLaunchedAppId && !iframeRefs.current.get(targetApp.id)) {
@@ -363,13 +367,13 @@ export function ChatBridgeApp() {
     }
     } catch (err) {
       console.error('[ChatBridge] handleSend error:', err)
-      // Prevent conversation corruption: add error tool results for any
-      // tool calls that may not have received results before the exception
       if (result?.type === 'tool_calls') {
         for (const tc of result.toolCalls) {
           addToolResult(tc.id ?? '', JSON.stringify({ error: 'Tool execution failed' }))
         }
       }
+    } finally {
+      isSendingRef.current = false
     }
   }, [input, isStreaming, getToken, sendMessage, availableApps, launchApp, addToolResult, getActiveApp, iframeRefs, handleToolCall, dispatchToolToApp, continueAfterToolCalls])
 

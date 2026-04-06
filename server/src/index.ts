@@ -21,7 +21,15 @@ const app = express();
 app.use(requestLogger());
 app.use(securityHeaders);
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    const allowed = process.env.ALLOWED_ORIGIN || 'http://localhost:5173';
+    // Accept: same origin, sandboxed iframes (null origin), and configured origin
+    if (!origin || origin === 'null' || origin === allowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());
