@@ -85,13 +85,24 @@ export function ChatBridgeApp() {
       console.info('[ChatBridge] App state update received:', data)
     })
 
-    // Use wildcard to get full envelope (includes source = appId)
+    // State persistence: validate source against known app IDs, enforce size limit
+    const MAX_SAVE_SIZE = 512 * 1024 // 512KB per app
     broker.on('*', (envelope: unknown) => {
       const msg = envelope as { type?: string; source?: string; payload?: unknown } | null
       if (msg?.type === 'app.save' && msg.source) {
+        // Validate source is a known launched app (prevents cross-app spoofing)
+        if (!apps.has(msg.source)) {
+          console.warn('[ChatBridge] Rejected app.save from unknown source:', msg.source)
+          return
+        }
         try {
-          const key = 'chatbridge:save:' + msg.source
-          localStorage.setItem(key, JSON.stringify(msg.payload))
+          const serialized = JSON.stringify(msg.payload)
+          if (serialized.length > MAX_SAVE_SIZE) {
+            console.warn('[ChatBridge] Save payload too large, skipping:', msg.source, serialized.length)
+            return
+          }
+          const key = `chatbridge:save:${sessionIdRef.current}:${msg.source}`
+          localStorage.setItem(key, serialized)
         } catch (e) {
           console.warn('[ChatBridge] Failed to save app state:', e)
         }
@@ -206,18 +217,34 @@ export function ChatBridgeApp() {
           if (appId === 'dos') {
             setIframeHeights(prev => new Map(prev).set(appId, Math.round(window.innerHeight * 0.5)))
           }
-          setTimeout(() => {
-            const iframe = iframeRefs.current.get(appId)
+          // Wait for app.ready signal before sending task.launch (replaces fixed 500ms timeout)
+          const readyTimeout = setTimeout(() => {
+            // Fallback: if app doesn't send ready in 3s, launch anyway
+            launchWhenReady(appId)
+          }, 3000)
+          const readyHandler = () => {
+            clearTimeout(readyTimeout)
+            launchWhenReady(appId)
+          }
+          broker.on('app.ready', readyHandler)
+
+          function launchWhenReady(id: string) {
+            broker.off('app.ready', readyHandler)
+            const iframe = iframeRefs.current.get(id)
             if (iframe && brokerRef.current) {
-              // Load saved state if available
               let savedState: unknown = undefined
               try {
-                const raw = localStorage.getItem('chatbridge:save:' + appId)
-                if (raw) savedState = JSON.parse(raw)
-              } catch { /* ignore */ }
-              brokerRef.current.launchApp(iframe, appId, { sessionId: sessionIdRef.current, savedState })
+                const raw = localStorage.getItem(`chatbridge:save:${sessionIdRef.current}:${id}`)
+                if (raw) {
+                  const parsed = JSON.parse(raw)
+                  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    savedState = parsed
+                  }
+                }
+              } catch { /* ignore corrupted state */ }
+              brokerRef.current.launchApp(iframe, id, { sessionId: sessionIdRef.current, savedState })
             }
-          }, 500)
+          }
           addToolResult(id, JSON.stringify({ launched: appId }))
           break
         }

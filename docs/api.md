@@ -314,12 +314,19 @@ Sent when the shell launches an app. Delivered with a `MessageChannel` port for 
   "type": "task.launch",
   "payload": {
     "appId": "chess",
-    "task": "Play a game of chess with the student"
+    "sessionId": "uuid-...",
+    "savedState": { "fen": "rnbqkbnr/...", "moveHistory": ["e2e4"] }
   }
 }
 ```
 
-The first entry in `event.ports` is the completion port. The app should store it and use it for `task.completed` signals.
+| Field | Type | Description |
+|---|---|---|
+| `appId` | string | App identifier |
+| `sessionId` | string | Current session UUID |
+| `savedState` | object or null | Previously saved state from `app.save`, or null if no saved state exists |
+
+The first entry in `event.ports` is the completion port. The app should store it and use it for `task.completed` signals. Apps should check `savedState` in their init to resume from where the user left off.
 
 #### `tool.invoke` — Parent → App
 
@@ -390,6 +397,30 @@ Requests the shell to resize the iframe.
   "payload": { "height": 480 }
 }
 ```
+
+#### `app.save` — App → Parent
+
+Persists app state to the parent's localStorage, keyed by app ID. Called automatically by apps after each state change (e.g., after every chess move). The parent stores the state and passes it back on next launch via `task.launch`.
+
+```json
+{
+  "type": "app.save",
+  "source": "chess",
+  "payload": {
+    "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+    "moveHistory": ["e2e4"]
+  }
+}
+```
+
+**State persistence lifecycle:**
+
+1. **Save:** App calls `ChatBridge.saveState(data)` after each state change → parent stores at `chatbridge:save:{appId}` in localStorage
+2. **Restore:** On `launch_app` tool call, parent reads `chatbridge:save:{appId}` from localStorage and passes it as `savedState` in the `task.launch` payload
+3. **Resume:** App's `init(savedState)` restores the game/session from the saved state object
+4. **Scope:** State survives page refreshes and app switches within the same browser. Cleared when localStorage is cleared.
+
+Apps that implement persistence: Chess (FEN + move history), Go (full board serialization). The SDK provides `ChatBridge.saveState()` — apps opt in by calling it.
 
 #### `capture.request` — Parent → App
 
