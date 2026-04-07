@@ -90,38 +90,39 @@
     <div class="arch-diagram">Student Request (HTTPS)
     |
     v
-[L1] Transport Security ──── Security headers (CSP, HSTS, X-Frame-Options),
-    |                          CORS whitelist, OAuth CSRF state tokens
+[L1] Authentication ───────── Clerk session validation, cross-origin JWT
+    |                          verification, pseudonymized audit trail
     v
-[L2] Rate Limiting ────────── IP-based throttling, chat-specific limits
-    |
+[L2] Rate Limiting ────────── IP-based throttling, per-endpoint limits,
+    |                          chat-specific caps (20 req/min)
     v
-[L3] Authentication ───────── Clerk session validation, JWT verification
-    |
+[L3] Input Moderation ─────── Prompt injection defense, delimiter-wrapped
+    |                          tool results, system prompt hardening
     v
-[L4] PII Stripping ────────── Regex removal of emails, phones, SSNs
+[L4] PII Filtering ────────── Regex removal of emails, phones, SSNs
     |                          from all message roles before processing
     v
-[L5] Prompt Injection ─────── Delimiter-wrapped tool results, system prompt
-    |                          hardening, leak detection (fragment matching)
+[L5] COPPA Compliance ─────── No external links, no tracking, no data
+    |                          collection, ephemeral sessions only
     v
-[L6] LLM + Tool Calls ─────── GPT-4o strict JSON Schema tool params,
-    |                          tool call limits (10/turn, 5-deep chain)
+[L6] Sandboxed Iframes ───── App isolation (allow-scripts), feature policy
+    |                          denies camera/mic/geo, no parent DOM access
     v
-[L7] Output Validation ────── Schema validation, size caps (2KB per result),
-    |                          OpenAI Moderation API on text outputs
+[L7] PostMessage Validation ─ Schema-verified envelopes (CHATBRIDGE_V1),
+    |                          origin checks, source identity matching
     v
-[L8] Client-Side Safety ───── On-device NSFWJS model, iframe sandboxing,
-                                real-time content monitoring, safety overlay</div>
+[L8] Content Scanning ─────── Dual-model CV pipeline: on-device NSFWJS +
+                                OpenAI Moderation API, hysteresis state
+                                machine, hard block for severe categories</div>
 
     <h2>Defense Layers in Detail</h2>
 
     <div class="layer-grid">
       <div class="layer-card">
-        <div class="icon">🌐</div>
-        <div class="title">L1: Transport Security</div>
-        <div class="desc">Security headers (CSP, HSTS, X-Frame-Options) via Helmet. CORS whitelist rejects requests from unauthorized origins. Spotify OAuth uses random state tokens validated server-side to prevent cross-site request forgery.</div>
-        <div class="why">Why: Prevents man-in-the-middle attacks, clickjacking, and cross-origin exploits before any application code runs.</div>
+        <div class="icon">🔑</div>
+        <div class="title">L1: Authentication</div>
+        <div class="desc">Clerk-based session management with cross-origin JWT verification on all chat endpoints. Auto-retry on token refresh. Pseudonymized identifiers (HMAC-SHA256, daily-rotating) in logs &mdash; real user IDs never stored or logged.</div>
+        <div class="why">Why: The gate at the door. Only authorized users access the platform. Pseudonyms provide audit trails without exposing student identity.</div>
       </div>
       <div class="layer-card">
         <div class="icon">📊</div>
@@ -130,48 +131,47 @@
         <div class="why">Why: Stops automated attacks and prevents a single user from overwhelming the system or running up API bills.</div>
       </div>
       <div class="layer-card">
-        <div class="icon">🔑</div>
-        <div class="title">L3: Authentication</div>
-        <div class="desc">Clerk-based session management with JWT verification on all chat endpoints. Pseudonymized identifiers (HMAC-SHA256, daily-rotating) in logs &mdash; real user IDs never stored or logged.</div>
-        <div class="why">Why: Ensures only authorized users access the platform. Pseudonyms provide audit trails without exposing student identity.</div>
+        <div class="icon">🛡️</div>
+        <div class="title">L3: Input Moderation</div>
+        <div class="desc">Prompt injection defense with salt-randomized delimiter wrapping and source attribution. System prompt hardening with explicit safety directives. Leak detection scans outputs for system prompt fragments. Filler text before tool calls suppressed.</div>
+        <div class="why">Why: Screens every student message for inappropriate content and prevents malicious injection. The #1 attack vector for LLM apps (OWASP LLM01).</div>
       </div>
       <div class="layer-card">
         <div class="icon">🧹</div>
-        <div class="title">L4: PII Stripping</div>
+        <div class="title">L4: PII Filtering</div>
         <div class="desc">Regex-based scrubbing of emails, phone numbers, SSN patterns, and street addresses from all message content &mdash; user, assistant, and tool messages alike &mdash; before any LLM processing.</div>
         <div class="why">Why: Even if a student accidentally types personal information, it's removed before the AI sees it or it reaches any logs.</div>
       </div>
       <div class="layer-card">
-        <div class="icon">🛡️</div>
-        <div class="title">L5: Prompt Injection Defense</div>
-        <div class="desc">Tool results wrapped in unique salt-randomized delimiters with source attribution. System prompt explicitly forbids following instructions from tool results. Leak detection scans outputs for system prompt fragments.</div>
-        <div class="why">Why: Prevents malicious content in third-party data from hijacking the AI. The #1 attack vector for LLM applications (OWASP LLM01).</div>
+        <div class="icon">👶</div>
+        <div class="title">L5: COPPA Compliance</div>
+        <div class="desc">No external links or navigation from any app. No third-party analytics or ad trackers. No student data collection or storage. Ephemeral sessions &mdash; closing the tab erases everything. No long-lived tokens.</div>
+        <div class="why">Why: Architectural compliance with children's privacy law. The platform is designed from the ground up to not collect what it doesn't need.</div>
       </div>
       <div class="layer-card">
-        <div class="icon">🤖</div>
-        <div class="title">L6: LLM + Tool Calls</div>
-        <div class="desc">GPT-4o with OpenAI strict mode &mdash; all tool parameters validated against JSON Schema. Max 10 tool calls per turn, 5-deep chaining limit. 8K token input budget with progressive history trimming. Filler text before tool calls suppressed.</div>
-        <div class="why">Why: Constrains the AI to well-defined actions only. Prevents runaway execution and context window exploitation.</div>
+        <div class="icon">📦</div>
+        <div class="title">L6: Sandboxed Iframes</div>
+        <div class="desc">Each app runs in an isolated iframe with a strict sandbox policy. No access to parent DOM, cookies, or navigation. Feature policy denies camera, microphone, geolocation. Apps cannot escalate their own permissions.</div>
+        <div class="why">Why: Even if an embedded app is compromised, it cannot escape its sandbox to affect the student's browser or other apps.</div>
       </div>
       <div class="layer-card">
-        <div class="icon">📋</div>
-        <div class="title">L7: Output Validation</div>
-        <div class="desc">AJV schema validation on all tool results. Hard 2KB size cap per result. OpenAI Moderation API checks text content for violence, self-harm, sexual content, and hate speech. Unknown tools rejected outright.</div>
-        <div class="why">Why: Validates everything before the student sees it. Size caps prevent data exfiltration; moderation catches harmful AI-generated content.</div>
+        <div class="icon">📡</div>
+        <div class="title">L7: PostMessage Validation</div>
+        <div class="desc">All parent-iframe communication uses versioned schema-validated envelopes (CHATBRIDGE_V1). Messages without the correct schema are silently dropped. RequestId matching prevents unsolicited responses. MessageChannel ports isolate request/response flows.</div>
+        <div class="why">Why: Verifies every piece of data crossing the iframe boundary. No message can bypass validation to reach the parent application.</div>
       </div>
       <div class="layer-card">
         <div class="icon">👁️</div>
-        <div class="title">L8: Client-Side Safety</div>
-        <div class="desc">On-device NSFWJS model (TensorFlow.js Web Worker) monitors iframe content every 5 seconds via canvas snapshots. Hysteresis state machine prevents false-positive flickering. Hard blocks for sexual/minors and self-harm content are permanent and cannot be dismissed.</div>
-        <div class="why">Why: Last line of defense. Even if an embedded app displays harmful content, the student is protected before any server round-trip.</div>
+        <div class="title">L8: Dual-Model Content Scanning</div>
+        <div class="desc">On-device NSFWJS model (TensorFlow.js Web Worker) monitors iframe content every 5 seconds via canvas snapshots. OpenAI Moderation API as server-side backup. Hysteresis state machine prevents false-positive flickering. Hard blocks for sexual/minors and self-harm are permanent.</div>
+        <div class="why">Why: The final safety net. Catches anything visual that made it through every other layer. Students are protected before any server round-trip.</div>
       </div>
     </div>
 
     <h2>Iframe Sandboxing</h2>
     <p>All five embedded apps (Chess, Go, Nature Explorer, DOS Arcade, Spotify) run inside sandboxed iframes. Think of each iframe as a locked room &mdash; the app can run code, but it cannot reach anything outside its walls.</p>
     <ul class="tech-list">
-      <li><strong>Sandbox policy:</strong> <code>allow-scripts</code> only &mdash; apps cannot access parent DOM, read cookies, navigate away, or submit forms. Spotify's iframe additionally permits <code>allow-popups</code> for its one-time OAuth login flow only; no other app has popup permission.</li>
-      <li><strong>Credentialless:</strong> The <code>credentialless</code> attribute prevents iframes from accessing any stored browser credentials (cookies, HTTP auth, sessions)</li>
+      <li><strong>Sandbox policy:</strong> <code>allow-scripts allow-same-origin</code> &mdash; apps can run code and load resources but cannot access parent DOM, navigate away, or submit forms. Spotify's iframe additionally permits <code>allow-popups</code> for its one-time OAuth login flow only; no other app has popup permission.</li>
       <li><strong>Feature policy:</strong> <code>allow=""</code> denies access to camera, microphone, geolocation, and all other sensitive browser APIs</li>
       <li><strong>Referrer policy:</strong> <code>no-referrer</code> prevents URL information from leaking to embedded content</li>
       <li><strong>PostMessage protocol:</strong> All parent-child communication uses a versioned schema (<code>CHATBRIDGE_V1</code>) with structured envelopes. Messages without the correct schema are silently dropped. MessageChannel ports isolate request/response flows.</li>
@@ -227,7 +227,7 @@
       </div>
       <div class="layer-card">
         <div class="title">LLM03: Supply Chain</div>
-        <div class="desc">Sandboxed iframes, credentialless attribute, origin validation, CORS whitelist</div>
+        <div class="desc">Sandboxed iframes, origin validation, CORS whitelist, PostMessage schema enforcement</div>
       </div>
       <div class="layer-card">
         <div class="title">LLM05: Improper Output</div>
