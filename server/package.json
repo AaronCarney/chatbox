@@ -9,7 +9,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@clerk/express": "^2.0.7",
     "ajv": "^8.18.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
