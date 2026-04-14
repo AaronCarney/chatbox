@@ -233,6 +233,13 @@ git commit -m "feat(server): add firebase-admin initialization module"
 
 - [ ] **Step 2.1: Write the failing test**
 
+**Contract:** `firebaseAuth` must be **non-blocking** (like Clerk's `clerkMiddleware`). Mounted globally via `app.use(firebaseAuth)` in `index.ts:42`, it must NOT 401 public routes (`/`, `/api/health`, `/api/apps`, `/api/oauth/*`, `/api/spotify/*`, `/api/nature/*`, `/api/moderation/*`). Instead:
+- Valid Bearer token → attach `req.user = { uid, email }`, call `next()`.
+- Missing Authorization header → leave `req.user` unset, call `next()`.
+- Invalid/rejected token → leave `req.user` unset, log at debug, call `next()`.
+
+The 401 gate for protected routes (`/api/chat`) is handled by the separate `requireSession` export, tested below.
+
 Create `server/tests/unit/middleware/firebaseAuth.test.ts`:
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -252,7 +259,7 @@ vi.mock('../../../src/lib/firebaseAdmin.js', () => ({
   getFirebaseAdmin: vi.fn(() => ({ name: '[DEFAULT]' })),
 }));
 
-describe('firebaseAuth middleware', () => {
+describe('firebaseAuth middleware (non-blocking)', () => {
   let req: Partial<Request>;
   let res: Partial<Response>;
   let next: NextFunction;
@@ -269,22 +276,51 @@ describe('firebaseAuth middleware', () => {
     await firebaseAuth(req as Request, res as Response, next);
     expect((req as any).user).toEqual({ uid: 'firebase-uid-123', email: 'user@example.com' });
     expect(next).toHaveBeenCalledWith();
+    expect(res.status).not.toHaveBeenCalled();
   });
 
-  it('returns 401 with "no-token" code when Authorization header is missing', async () => {
+  it('calls next() without attaching user when Authorization header is missing', async () => {
     const { firebaseAuth } = await import('../../../src/middleware/firebaseAuth.js');
     await firebaseAuth(req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: 'unauthorized', code: 'no-token' });
-    expect(next).not.toHaveBeenCalled();
+    expect((req as any).user).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+    expect(res.status).not.toHaveBeenCalled();
   });
 
-  it('returns 401 with "token-rejected" code when token is invalid', async () => {
+  it('calls next() without attaching user when token is rejected', async () => {
     const { firebaseAuth } = await import('../../../src/middleware/firebaseAuth.js');
     req.headers = { authorization: 'Bearer rejected-token' };
     await firebaseAuth(req as Request, res as Response, next);
+    expect((req as any).user).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+describe('requireSession gate', () => {
+  let req: Partial<Request>;
+  let res: Partial<Response>;
+  let next: NextFunction;
+
+  beforeEach(() => {
+    req = {};
+    res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    next = vi.fn();
+  });
+
+  it('calls next() when req.user is set', async () => {
+    const { requireSession } = await import('../../../src/middleware/firebaseAuth.js');
+    (req as any).user = { uid: 'firebase-uid-123', email: 'user@example.com' };
+    requireSession(req as Request, res as Response, next);
+    expect(next).toHaveBeenCalledWith();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 with "no-session" when req.user is absent', async () => {
+    const { requireSession } = await import('../../../src/middleware/firebaseAuth.js');
+    requireSession(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: 'unauthorized', code: 'token-rejected' });
+    expect(res.json).toHaveBeenCalledWith({ error: 'unauthorized', code: 'no-session' });
     expect(next).not.toHaveBeenCalled();
   });
 });
@@ -311,14 +347,19 @@ export interface AuthenticatedRequest extends Request {
   user?: { uid: string; email?: string };
 }
 
+// Non-blocking: attaches req.user if a valid Bearer token is present,
+// otherwise calls next() with req.user unset. The 401 gate for protected
+// routes is handled by requireSession. This matches Clerk's clerkMiddleware
+// semantics, allowing the middleware to be mounted globally without breaking
+// public routes (health beacon, OAuth callbacks, Spotify, etc.).
 export async function firebaseAuth(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'unauthorized', code: 'no-token' });
+    next();
     return;
   }
   const token = header.slice('Bearer '.length);
@@ -326,11 +367,12 @@ export async function firebaseAuth(
     const app = getFirebaseAdmin();
     const decoded = await getAuth(app).verifyIdToken(token);
     (req as AuthenticatedRequest).user = { uid: decoded.uid, email: decoded.email };
-    next();
   } catch (err) {
     logger.debug({ err: (err as Error).message }, 'firebase token rejected');
-    res.status(401).json({ error: 'unauthorized', code: 'token-rejected' });
+    // Intentionally do NOT 401 here — match Clerk's non-blocking behavior.
+    // requireSession gates protected routes.
   }
+  next();
 }
 
 export function requireSession(req: Request, res: Response, next: NextFunction): void {
@@ -348,7 +390,7 @@ Run:
 ```bash
 cd server && pnpm vitest run tests/unit/middleware/firebaseAuth.test.ts
 ```
-Expected: 3/3 PASS.
+Expected: 5/5 PASS (3 firebaseAuth non-blocking cases + 2 requireSession gate cases).
 
 - [ ] **Step 2.5: Commit**
 
@@ -988,11 +1030,11 @@ Then create a PR (or Vercel auto-deploys the branch if configured).
 
 - [ ] **Step 10.2: Wait for Vercel preview to go live**
 
-Run:
+The `git push` in 10.1 triggers Vercel's git integration automatically. Poll for the preview URL via:
 ```bash
-vercel deploy --prebuilt=false
+vercel ls --count 1
 ```
-Capture the preview URL.
+Or use `gh pr checks` once the PR is opened. Capture the preview URL from the output.
 
 - [ ] **Step 10.3: Wait for Railway to redeploy the server**
 
