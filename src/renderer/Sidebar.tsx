@@ -4,7 +4,7 @@ import { IconCirclePlus, IconLayoutSidebarLeftCollapse } from '@tabler/icons-rea
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { UserButton } from '@clerk/clerk-react'
+import { UserMenu } from './components/UserMenu'
 import { useTranslation } from 'react-i18next'
 import { ScalableIcon } from './components/common/ScalableIcon'
 import useNeedRoomForMacWinControls from './hooks/useNeedRoomForWinControls'
@@ -118,7 +118,7 @@ export default function Sidebar() {
           </Flex>
 
           <Flex align="center" gap="xs">
-            <UserButton />
+            <UserMenu />
             <Tooltip label={t('Collapse')} openDelay={1000} withArrow>
               <ActionIcon variant="subtle" color="chatbox-tertiary" size={20} onClick={() => setShowSidebar(false)}>
                 <IconLayoutSidebarLeftCollapse />

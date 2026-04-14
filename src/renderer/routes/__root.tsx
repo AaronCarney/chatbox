@@ -39,7 +39,9 @@ import CssBaseline from '@mui/material/CssBaseline'
 import { ThemeProvider } from '@mui/material/styles'
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { useEffect, useMemo } from 'react'
-import { ClerkProvider, SignedIn, SignedOut, SignIn } from '@clerk/clerk-react'
+import { AuthProvider } from '@/lib/AuthProvider'
+import { useAuth } from '@/hooks/useAuth'
+import { SignInPage } from '@/components/SignInPage'
 import { getOS } from '@/packages/navigator'
 import platform from '@/platform'
 import Sidebar from '@/Sidebar'
@@ -80,9 +82,15 @@ function Root() {
     }
   }, [needRoomForMacWindowControls])
 
+  const { isSignedIn, isLoaded } = useAuth()
+
+  if (!isLoaded) {
+    return null
+  }
+
   return (
     <>
-      <SignedIn>
+      {isSignedIn ? (
         <Box className="box-border App relative" spellCheck={spellCheck} dir={language === 'ar' ? 'rtl' : 'ltr'}>
           {platform.type === 'desktop' && (getOS() === 'Windows' || getOS() === 'Linux') && <ExitFullscreenButton />}
           <Grid container className="h-full relative z-[1]">
@@ -105,10 +113,9 @@ function Root() {
           </Grid>
           <Toasts />
         </Box>
-      </SignedIn>
-      <SignedOut>
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', backgroundColor: '#16161e' }}>
-          <SignIn />
+          <SignInPage />
           <a
             href="/security.html"
             style={{ marginTop: '24px', color: '#7ec87e', fontSize: '14px', textDecoration: 'none' }}
@@ -116,7 +123,7 @@ function Root() {
             Safety & Security Documentation
           </a>
         </div>
-      </SignedOut>
+      )}
     </>
   )
 }
@@ -398,14 +405,8 @@ export const Route = createRootRoute({
     }, [fontSize])
     const mantineTheme = useMemo(() => creteMantineTheme(), [])
 
-    const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-
-    if (!publishableKey) {
-      throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY')
-    }
-
     return (
-      <ClerkProvider publishableKey={publishableKey}>
+      <AuthProvider>
         <MantineProvider
           theme={mantineTheme}
           defaultColorScheme={_theme === Theme.Dark ? 'dark' : _theme === Theme.Light ? 'light' : 'auto'}
@@ -419,7 +420,7 @@ export const Route = createRootRoute({
           </NiceModal.Provider>
         </ThemeProvider>
         </MantineProvider>
-      </ClerkProvider>
+      </AuthProvider>
     )
   },
 })

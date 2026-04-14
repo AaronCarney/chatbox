@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-react'
+import { useAuth } from '../hooks/useAuth'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchApps } from '../services/api.js'
 import { IframeManager } from './iframe/IframeManager.js'

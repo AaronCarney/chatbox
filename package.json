@@ -246,7 +246,6 @@
     "zustand": "^5.0.6"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.3",
     "@libsql/client": "^0.15.6",
     "@lobehub/icons": "^4.0.2",
     "@mastra/core": "^0.13.2",
