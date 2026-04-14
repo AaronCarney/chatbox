@@ -12,6 +12,12 @@
 
 ---
 
+## Simplifications — operator decision 2026-04-14
+
+No Clerk user export. Operator accepts fresh-start cutover. For chatbridge this changes nothing — the plan already assumes orphaned sessions because the HMAC `session_pseudonym` regenerates from the new Firebase UID. **Zero task changes required.** Proceed as written.
+
+---
+
 ## File Structure
 
 ### Files to create
