@@ -1,12 +1,15 @@
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import type { Request } from 'express';
+
+export function keyGenerator(req: Request): string {
+  return (req as any).user?.uid || req.ip || 'unknown';
+}
 
 export const chatLimiter = rateLimit({
   windowMs: 60000,
   max: 20,
-  keyGenerator: (req) => {
-    return (req as any).clerkAuth?.userId || req.ip || 'unknown';
-  },
+  keyGenerator,
   validate: { keyGeneratorIpFallback: false },
   standardHeaders: true,
   legacyHeaders: false,
