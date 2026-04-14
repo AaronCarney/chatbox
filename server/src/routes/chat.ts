@@ -17,7 +17,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
   const log = logger.child({ requestId, activeAppId, messageCount: messages.length });
   const start = Date.now();
 
-  const userId = (req as any).clerkAuth?.userId;
+  const userId = (req as any).user?.uid;
   const pseudonym = userId ? sessionManager.generatePseudonym(userId) : null;
   if (pseudonym) {
     log.info({ pseudonym }, 'session bound');

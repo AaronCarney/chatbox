@@ -3,7 +3,7 @@ import cors from 'cors';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { logger, requestLogger } from './lib/logger.js';
-import { clerkAuth, requireSession } from './middleware/auth.js';
+import { firebaseAuth, requireSession } from './middleware/firebaseAuth.js';
 import { securityHeaders, generalLimiter, chatLimiter } from './middleware/rateLimit.js';
 import { healthRouter } from './routes/health.js';
 import { appsRouter } from './routes/apps.js';
@@ -38,8 +38,8 @@ app.use('/api', generalLimiter);
 app.use('/api/chat', chatLimiter);
 app.use('/api/moderate-image', chatLimiter);
 
-// Apply Clerk authentication middleware globally
-app.use(clerkAuth);
+// Apply Firebase authentication middleware globally
+app.use(firebaseAuth);
 
 // Root endpoint — health beacon (no sensitive info)
 app.get('/', (_req, res) => {
@@ -60,7 +60,7 @@ app.use('/api', spotifyRouter);
 app.use('/api', natureRouter);
 app.use('/api', moderationRouter);
 
-// Frontend needs @clerk/clerk-react ClerkProvider with VITE_CLERK_PUBLISHABLE_KEY
+// Frontend uses Firebase AuthProvider with VITE_FIREBASE_* env vars
 
 // Catch-all 404 with logging
 app.use((req, res) => {
