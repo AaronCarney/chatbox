@@ -56,9 +56,11 @@ No Clerk user export. Operator accepts fresh-start cutover. For chatbridge this 
 
 ---
 
-## Task 0: Baseline green (serial, blocks everything)
+## Task 0: Baseline record (serial, blocks everything)
 
 **Files:** none modified
+
+> **Baseline is known-red as of 2026-04-14.** The main branch has pre-existing failures unrelated to Clerk/Firebase: frontend `analyzer.test.ts` (6 failures), backend `llm.test.ts` / `nature.test.ts` (2 test failures), backend routes/* test collection cascade from `moderation.ts` OpenAI construction (4 files, 0 tests each), and TS errors in `src/shared/providers/*` + `tests/integration/file-conversation/test-harness.ts`. None overlap with the files this migration touches. Task 0 now records counts; Task 8 checks that counts did not increase.
 
 - [ ] **Step 0.1: Confirm you're on main and working tree is clean**
 
@@ -68,7 +70,7 @@ cd projects/chatbridge
 git status
 git rev-parse --abbrev-ref HEAD
 ```
-Expected: `main`, nothing staged, nothing unstaged.
+Expected: `main`, nothing staged, nothing unstaged (ignore pre-existing untracked `docs/sessions/progress-*.md`).
 
 - [ ] **Step 0.2: Install dependencies**
 
@@ -78,31 +80,15 @@ pnpm install
 ```
 Expected: exits 0.
 
-- [ ] **Step 0.3: Run full frontend test suite, confirm green**
+- [ ] **Step 0.3: Record baseline counts (do not gate)**
 
-Run:
+Run and capture to memory, do not gate:
 ```bash
-pnpm test
+pnpm test 2>&1 | tail -5   # record "Tests X failed | Y passed"
+cd server && pnpm test 2>&1 | tail -5 && cd ..
+pnpm tsc --noEmit 2>&1 | wc -l   # record TS error count
 ```
-Expected: all Vitest tests pass. Record the count in the commit message of Task 1.
-
-- [ ] **Step 0.4: Run full backend test suite, confirm green**
-
-Run:
-```bash
-cd server && pnpm test
-```
-Expected: all Vitest tests pass. Record the count.
-
-- [ ] **Step 0.5: Run typecheck**
-
-Run:
-```bash
-cd .. && pnpm typecheck 2>/dev/null || pnpm tsc --noEmit
-```
-Expected: zero type errors.
-
-If any of 0.2–0.5 fail, STOP. The migration cannot begin on a red baseline. Raise to the operator.
+Baseline as of 2026-04-14: frontend `6 failed | 451 passed`, backend `2 failed | 112 passed` (+6 test files in collection failure), typecheck ~20 errors. If the numbers are worse than this, investigate — something else has regressed since plan was written. Otherwise proceed.
 
 ---
 
@@ -505,7 +491,19 @@ git commit -m "refactor(server): swap clerkAuth.userId → user.uid across call 
 
 **Files:**
 - Modify: `server/package.json`
+- Modify: `server/pnpm-lock.yaml`
+- Modify: `server/tests/setup.ts` (remove `@clerk/express` mock block — see Step 4.0)
 - Modify: `.env.example`
+
+- [ ] **Step 4.0: Remove the `@clerk/express` mock from `server/tests/setup.ts`**
+
+The existing setup file has a `vi.mock('@clerk/express', () => ({...}))` block. Once we remove the package in 4.1, that mock will throw `ModuleNotFoundError` at test load time and break every backend test file. Strip it first.
+
+Edit `server/tests/setup.ts` — delete the entire `vi.mock('@clerk/express', ...)` block (lines 3-20 of the current file). The resulting file should be:
+```typescript
+import { vi } from 'vitest';
+```
+(or just delete the file entirely and remove it from vitest config if nothing else lives in it — check `vitest.config.ts` to decide).
 
 - [ ] **Step 4.1: Remove @clerk/express**
 
@@ -927,21 +925,28 @@ Run:
 pnpm remove @clerk/clerk-react
 ```
 
-- [ ] **Step 8.6: Run full frontend test suite**
+- [ ] **Step 8.6: Run scoped frontend test suite — owned files only**
 
-Run:
+Because the baseline has known pre-existing failures in `src/renderer/packages/token-estimation/__tests__/analyzer.test.ts` (6 failures unrelated to auth), we do NOT gate on `pnpm test`. Instead run only the tests that cover files this migration touches:
 ```bash
-pnpm test
+pnpm vitest run \
+  src/renderer/lib/__tests__/AuthProvider.test.tsx \
+  src/renderer/components/__tests__/SignInPage.test.tsx
 ```
-Expected: all tests pass. Update any mocks that still reference `@clerk/clerk-react`.
-
-- [ ] **Step 8.7: Run typecheck**
-
-Run:
+Expected: all tests in those files pass. Then run full suite for observation only:
 ```bash
-pnpm tsc --noEmit
+pnpm test 2>&1 | tail -5
 ```
-Expected: zero errors.
+Verify the failure count has NOT increased beyond the baseline (6 frontend failures). If any new failures appear outside the token-estimation file, investigate before committing.
+
+- [ ] **Step 8.7: Run typecheck — count gate**
+
+Because the baseline has ~20 pre-existing TS errors in `src/shared/providers/*` and `tests/integration/file-conversation/test-harness.ts` (unrelated to auth), do NOT gate on zero. Instead:
+```bash
+pnpm tsc --noEmit 2>&1 | tee /tmp/tsc.out | wc -l
+grep -E "clerk|firebase|auth\.ts|AuthProvider|useAuth|SignInPage|UserMenu|__root|ChatBridgeApp|Sidebar|rateLimit|logger|firebaseAdmin|firebaseAuth|routes/chat" /tmp/tsc.out
+```
+Expected: the grep returns zero lines (no TS errors in files this migration touches). Total line count should be near baseline (~20). If any grep match appears, fix it before committing.
 
 - [ ] **Step 8.8: Commit**
 
